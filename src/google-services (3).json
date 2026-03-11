@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1002185999075",
+    "project_id": "trustguard-ai-2026",
+    "storage_bucket": "trustguard-ai-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1002185999075:android:b87c2477b05e510f3dfbd6",
+        "android_client_info": {
+          "package_name": "com.kamihack.trustguardai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2-E4UyqTraX2r4l9-GUqvJK0LU_CWeNM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

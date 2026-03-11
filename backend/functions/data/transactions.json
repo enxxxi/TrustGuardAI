@@ -1,0 +1,22 @@
+[
+  {
+    "amount": 45,
+    "hour": 14,
+    "newLocation": false
+  },
+  {
+    "amount": 1200,
+    "hour": 3,
+    "newLocation": true
+  },
+  {
+    "amount": 35,
+    "hour": 16,
+    "newLocation": false
+  },
+  {
+    "amount": 1500,
+    "hour": 2,
+    "newLocation": true
+  }
+]
