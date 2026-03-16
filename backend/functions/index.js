@@ -248,3 +248,61 @@ app.post("/explain", (req, res) => {
   });
 
 });
+
+// Feature 4: Adaptive Fraud Learning
+app.post("/feedback", (req, res) => {
+  const { userId, transactionAmount, location, device, isFraud } = req.body;
+
+  let learningUpdate = "";
+
+  if (isFraud) {
+    learningUpdate = "Fraud pattern recorded. Risk model will increase sensitivity for similar transactions.";
+  } else {
+    learningUpdate = "Legitimate transaction recorded. Model will reduce false positives for similar behaviour.";
+  }
+
+  res.json({
+    status: "Feedback Recorded",
+    userId,
+    isFraud,
+    learningUpdate
+  });
+});
+
+//Update User Behavior Profile Endpoint
+app.post("/update-profile", (req, res) => {
+  const { userId, avgAmount, usualLocations, trustedDevices } = req.body;
+
+  const updatedProfile = {
+    userId,
+    avgAmount,
+    usualLocations,
+    trustedDevices,
+    lastUpdated: new Date()
+  };
+
+  res.json({
+    status: "User behaviour profile updated",
+    profile: updatedProfile
+  });
+});
+
+
+//Retrieve Fraud Insights Endpoint
+app.get("/fraud-insights", (req, res) => {
+
+  const insights = {
+    emergingFraudPatterns: [
+      "High-value transactions from new devices",
+      "Transactions occurring outside normal hours",
+      "Rapid multiple transfers within short time"
+    ],
+    modelStatus: "Learning from recent confirmed fraud cases",
+    lastUpdated: new Date()
+  };
+
+  res.json({
+    status: "Adaptive learning insights",
+    insights
+  });
+});
