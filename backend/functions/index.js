@@ -198,3 +198,53 @@ app.get("/riskDashboard", (req, res) => {
     res.json(dashboard);
 
 });
+
+// Feature 3: Explainable Fraud Detection
+app.post("/explain", (req, res) => {
+
+  const {
+    amount,
+    userAverage,
+    newDevice,
+    newLocation
+  } = req.body;
+
+  let riskScore = 0;
+  let explanations = [];
+
+  // Rule 1: Amount much higher than average
+  if (amount > userAverage * 5) {
+    riskScore += 40;
+    explanations.push(
+      `Transaction amount is ${(amount / userAverage).toFixed(1)}× higher than the user's average`
+    );
+  }
+
+  // Rule 2: New device login
+  if (newDevice) {
+    riskScore += 30;
+    explanations.push("Login from a new device");
+  }
+
+  // Rule 3: New geographic location
+  if (newLocation) {
+    riskScore += 30;
+    explanations.push("Transaction location is unusual");
+  }
+
+  // Determine status
+  let status = "APPROVED";
+
+  if (riskScore >= 80) {
+    status = "BLOCKED";
+  } else if (riskScore >= 40) {
+    status = "REVIEW";
+  }
+
+  res.json({
+    riskScore,
+    status,
+    explanation: explanations
+  });
+
+});
