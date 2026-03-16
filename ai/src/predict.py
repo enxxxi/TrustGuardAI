@@ -169,7 +169,7 @@ def predict_transaction(transaction: dict) -> dict:
         reasons.append("Suspicious transaction pattern detected from anomaly score")
 
     # Rule-based safeguard for large risky transaction types
-    if transaction["type"] in {"TRANSFER", "CASH_OUT"} and transaction["amount"] >= 200000:
+    if transaction["type"] in {"TRANSFER", "CASH_OUT"} and transaction["amount"] >= 50000:
         risk_score = max(risk_score, 40)
         reasons.append("High-value transfer or cash-out transaction")
 
