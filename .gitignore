@@ -67,3 +67,33 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+<<<<<<< HEAD
+# Python virtual environment
+ai/venv/
+=======
+# ==============================
+# Python / AI / ML
+# ==============================
+
+# Virtual environments
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Model files (optional – remove if you want to keep demo models)
+*.pkl
+*.joblib
+
+# Large datasets
+ai/data/*
+!ai/data/.gitkeep
+>>>>>>> ca95f80 (Finalize TrustGuard AI fraud detection pipeline and prediction engine)
