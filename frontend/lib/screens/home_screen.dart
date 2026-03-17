@@ -7,16 +7,16 @@ import '../theme/app_theme.dart';
 import '../models/app_state.dart';
 import '../widgets/common_widgets.dart';
 import 'transaction_detail_screen.dart';
-
+ 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override State<HomeScreen> createState() => _HomeScreenState();
 }
-
+ 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _anim;
-
+ 
   @override
   void initState() {
     super.initState();
@@ -24,10 +24,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
     _ctrl.forward();
   }
-
+ 
   @override
   void dispose() { _ctrl.dispose(); super.dispose(); }
-
+ 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -49,12 +49,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 }
-
+ 
 // ── Hero ─────────────────────────────────────────────
 class _HeroSection extends StatelessWidget {
   final Animation<double> anim;
   const _HeroSection({required this.anim});
-
+ 
   @override
   Widget build(BuildContext context) {
     final unread = context.watch<AppState>().unreadCount;
@@ -65,7 +65,6 @@ class _HeroSection extends StatelessWidget {
       ),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 56),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Top bar
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Row(children: [
             Container(
@@ -111,14 +110,11 @@ class _HeroSection extends StatelessWidget {
             ]),
           ),
         ]),
-
         const SizedBox(height: 20),
         Text('Good afternoon,', style: AppText.body(13, color: AppColors.darkText)),
         const SizedBox(height: 2),
         Text('Aisha Binti Razak 👋', style: AppText.h1(22, color: Colors.white)),
         const SizedBox(height: 14),
-
-        // Protection card
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -166,9 +162,11 @@ class _HeroSection extends StatelessWidget {
               const SizedBox(height: 10),
               Row(children: [
                 _MicroStat('96.4%', 'Accuracy', AppColors.safe),
-                Container(width: 1, height: 20, color: AppColors.darkBorder, margin: const EdgeInsets.symmetric(horizontal: 10)),
+                Container(width: 1, height: 20, color: AppColors.darkBorder,
+                  margin: const EdgeInsets.symmetric(horizontal: 10)),
                 _MicroStat('1.2%', 'False +', AppColors.warn),
-                Container(width: 1, height: 20, color: AppColors.darkBorder, margin: const EdgeInsets.symmetric(horizontal: 10)),
+                Container(width: 1, height: 20, color: AppColors.darkBorder,
+                  margin: const EdgeInsets.symmetric(horizontal: 10)),
                 _MicroStat('38ms', 'Latency', AppColors.accentMid),
               ]),
             ])),
@@ -178,7 +176,7 @@ class _HeroSection extends StatelessWidget {
     );
   }
 }
-
+ 
 class _MicroStat extends StatelessWidget {
   final String val, label;
   final Color color;
@@ -189,7 +187,7 @@ class _MicroStat extends StatelessWidget {
     Text(label, style: AppText.label(9, color: AppColors.darkText2)),
   ]);
 }
-
+ 
 class _RingPainter extends CustomPainter {
   final double progress;
   const _RingPainter({required this.progress});
@@ -206,11 +204,30 @@ class _RingPainter extends CustomPainter {
   }
   @override bool shouldRepaint(_RingPainter o) => o.progress != progress;
 }
-
+ 
 // ── KPI Row ──────────────────────────────────────────
 class _KpiRow extends StatelessWidget {
+  void _showSheet(BuildContext context, String title, Color color,
+      List<Transaction> txs, String summary) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _KpiSheet(
+        title: title, color: color, txs: txs, summary: summary),
+    );
+  }
+ 
   @override
   Widget build(BuildContext context) {
+    final approved = AppData.transactions
+        .where((t) => t.status == TxStatus.approved).toList();
+    final flagged  = AppData.transactions
+        .where((t) => t.status == TxStatus.flagged).toList();
+    final blocked  = AppData.transactions
+        .where((t) => t.status == TxStatus.blocked).toList();
+    final savedAmt = blocked.fold(0.0, (s, t) => s + t.amount);
+ 
     return Transform.translate(
       offset: const Offset(0, -28),
       child: Padding(
@@ -223,23 +240,278 @@ class _KpiRow extends StatelessWidget {
             boxShadow: AppShadow.elevated,
           ),
           child: IntrinsicHeight(child: Row(children: [
-            Expanded(child: StatChip(value: '142', label: 'Approved', color: AppColors.safe, sub: '↑ +8')),
-            _VDivider(), Expanded(child: StatChip(value: '3', label: 'Flagged', color: AppColors.warn, sub: '↑ +1')),
-            _VDivider(), Expanded(child: StatChip(value: '1', label: 'Blocked', color: AppColors.danger, sub: '⚠ High')),
-            _VDivider(), Expanded(child: StatChip(value: 'RM 906', label: 'Saved', color: AppColors.accent, sub: '✓')),
+            Expanded(child: _TapChip(
+              value: '${approved.length}', label: 'Approved',
+              color: AppColors.safe, sub: '↑ +8',
+              onTap: () => _showSheet(context, 'Approved Transactions',
+                AppColors.safe, approved,
+                '${approved.length} transactions cleared safely today'),
+            )),
+            _VDivider(),
+            Expanded(child: _TapChip(
+              value: '${flagged.length}', label: 'Flagged',
+              color: AppColors.warn, sub: '↑ +1',
+              onTap: () => _showSheet(context, 'Flagged Transactions',
+                AppColors.warn, flagged,
+                '${flagged.length} transactions pending review'),
+            )),
+            _VDivider(),
+            Expanded(child: _TapChip(
+              value: '${blocked.length}', label: 'Blocked',
+              color: AppColors.danger, sub: '⚠ High',
+              onTap: () => _showSheet(context, 'Blocked Transactions',
+                AppColors.danger, blocked,
+                '${blocked.length} high-risk transactions stopped'),
+            )),
+            _VDivider(),
+            Expanded(child: _TapChip(
+              value: 'RM ${savedAmt.toStringAsFixed(0)}',
+              label: 'Saved', color: AppColors.accent, sub: '✓',
+              onTap: () => _showSheet(context, 'Money Saved',
+                AppColors.accent, blocked,
+                'RM ${savedAmt.toStringAsFixed(2)} protected from fraud'),
+            )),
           ])),
         ),
       ),
     );
   }
 }
-
+ 
+// ── Tappable KPI Chip ────────────────────────────────
+class _TapChip extends StatefulWidget {
+  final String value, label, sub;
+  final Color color;
+  final VoidCallback onTap;
+  const _TapChip({required this.value, required this.label,
+    required this.sub, required this.color, required this.onTap});
+  @override State<_TapChip> createState() => _TapChipState();
+}
+ 
+class _TapChipState extends State<_TapChip> {
+  bool _pressed = false;
+ 
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        decoration: BoxDecoration(
+          color: _pressed ? widget.color.withOpacity(0.06) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(children: [
+          Text(widget.value, style: AppText.h1(20, color: widget.color)),
+          const SizedBox(height: 2),
+          Text(widget.sub, style: AppText.label(9, color: widget.color.withOpacity(0.75))),
+          const SizedBox(height: 2),
+          Text(widget.label, style: AppText.label(10, color: AppColors.ink3)),
+          const SizedBox(height: 4),
+          // Tap hint
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.touch_app_rounded, size: 9, color: AppColors.ink4),
+            const SizedBox(width: 2),
+            Text('details', style: AppText.label(8, color: AppColors.ink4)),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+ 
 class _VDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
-    Container(width: 1, color: AppColors.divider, margin: const EdgeInsets.symmetric(vertical: 12));
+    Container(width: 1, color: AppColors.divider,
+      margin: const EdgeInsets.symmetric(vertical: 12));
 }
-
+ 
+// ── KPI Bottom Sheet ─────────────────────────────────
+class _KpiSheet extends StatelessWidget {
+  final String title, summary;
+  final Color color;
+  final List<Transaction> txs;
+  const _KpiSheet({required this.title, required this.color,
+    required this.txs, required this.summary});
+ 
+  @override
+  Widget build(BuildContext context) {
+    final totalAmt = txs.fold(0.0, (s, t) => s + t.amount);
+ 
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Drag handle
+        Center(child: Container(
+          width: 40, height: 4,
+          margin: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.card3, borderRadius: BorderRadius.circular(2)),
+        )),
+ 
+        // Header
+        Row(children: [
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Icon(_statusIcon(color), color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: AppText.h2(17)),
+            Text(summary, style: AppText.label(12, color: color)),
+          ])),
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.card2, borderRadius: BorderRadius.circular(8)),
+              alignment: Alignment.center,
+              child: const Icon(Icons.close_rounded, size: 16, color: AppColors.ink3),
+            ),
+          ),
+        ]),
+ 
+        const SizedBox(height: 14),
+ 
+        // Summary stats
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.15)),
+          ),
+          child: Row(children: [
+            Expanded(child: _SheetStat('${txs.length}', 'Transactions', color)),
+            Container(width: 1, height: 32, color: color.withOpacity(0.15)),
+            Expanded(child: _SheetStat(
+              'RM ${totalAmt.toStringAsFixed(0)}', 'Total Value', color)),
+            Container(width: 1, height: 32, color: color.withOpacity(0.15)),
+            Expanded(child: _SheetStat(
+              txs.isEmpty ? '-'
+                : '${(txs.fold(0, (s, t) => s + t.riskScore) / txs.length).toStringAsFixed(0)}%',
+              'Avg Risk', color)),
+          ]),
+        ),
+ 
+        const SizedBox(height: 14),
+ 
+        // Transaction list
+        if (txs.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            child: Column(children: [
+              Icon(Icons.check_circle_outline_rounded,
+                size: 44, color: AppColors.safe),
+              const SizedBox(height: 10),
+              Text('No transactions in this category',
+                style: AppText.body(14, color: AppColors.ink3)),
+            ]),
+          )
+        else
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.45),
+            child: ListView.builder(
+              padding: const EdgeInsets.only(bottom: 32),
+              physics: const BouncingScrollPhysics(),
+              shrinkWrap: true,
+              itemCount: txs.length,
+              itemBuilder: (ctx, i) {
+                final tx = txs[i];
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(ctx, MaterialPageRoute(
+                      builder: (_) => TransactionDetailScreen(tx: tx)));
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border.withOpacity(0.6)),
+                      boxShadow: AppShadow.card,
+                    ),
+                    child: Row(children: [
+                      Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(tx.emoji, style: const TextStyle(fontSize: 18)),
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(tx.name,
+                          style: AppText.body(13, color: AppColors.ink,
+                            weight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text('${tx.platform} · ${tx.date} · ${tx.time}',
+                          style: AppText.label(10)),
+                      ])),
+                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Text('RM ${tx.amount.toStringAsFixed(2)}',
+                          style: AppText.mono(13, color: AppColors.ink)),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text('${tx.riskScore}%',
+                            style: AppText.tag(9, color: color)),
+                        ),
+                      ]),
+                    ]),
+                  ),
+                );
+              },
+            ),
+          ),
+      ]),
+    );
+  }
+ 
+  IconData _statusIcon(Color c) {
+    if (c == AppColors.safe)   return Icons.check_circle_outline_rounded;
+    if (c == AppColors.warn)   return Icons.flag_outlined;
+    if (c == AppColors.danger) return Icons.block_rounded;
+    return Icons.savings_outlined;
+  }
+}
+ 
+class _SheetStat extends StatelessWidget {
+  final String value, label;
+  final Color color;
+  const _SheetStat(this.value, this.label, this.color);
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Text(value, style: AppText.mono(15, color: color)),
+    const SizedBox(height: 2),
+    Text(label, style: AppText.label(10)),
+  ]);
+}
+ 
 // ── Alert Banner ─────────────────────────────────────
 class _ActiveAlertBanner extends StatelessWidget {
   @override
@@ -273,14 +545,15 @@ class _ActiveAlertBanner extends StatelessWidget {
               Text('RM 1,200 blocked — new device from Indonesia. Tap to review.',
                 style: AppText.body(11, color: AppColors.ink2)),
             ])),
-            Icon(Icons.chevron_right_rounded, color: AppColors.danger.withOpacity(0.6), size: 20),
+            Icon(Icons.chevron_right_rounded,
+              color: AppColors.danger.withOpacity(0.6), size: 20),
           ]),
         ),
       ),
     );
   }
 }
-
+ 
 // ── Weekly Chart ─────────────────────────────────────
 class _WeeklyCard extends StatelessWidget {
   @override
@@ -293,7 +566,8 @@ class _WeeklyCard extends StatelessWidget {
             Text('This Week', style: AppText.h2(15)),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(color: AppColors.accentLight, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                color: AppColors.accentLight, borderRadius: BorderRadius.circular(8)),
               child: Text('RM 906 total',
                 style: AppText.label(11, color: AppColors.accent, weight: FontWeight.w700)),
             ),
@@ -318,19 +592,21 @@ class _WeeklyCard extends StatelessWidget {
               titlesData: FlTitlesData(
                 bottomTitles: AxisTitles(sideTitles: SideTitles(
                   showTitles: true, reservedSize: 22,
-                  getTitlesWidget: (v, _) => Text(AppData.weekDays[v.toInt()],
-                    style: AppText.label(10)),
+                  getTitlesWidget: (v, _) => Text(
+                    AppData.weekDays[v.toInt()], style: AppText.label(10)),
                 )),
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles:  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               gridData: FlGridData(show: true, drawVerticalLine: false,
-                getDrawingHorizontalLine: (_) => FlLine(color: AppColors.divider, strokeWidth: 1)),
+                getDrawingHorizontalLine: (_) =>
+                  const FlLine(color: AppColors.divider, strokeWidth: 1)),
               borderData: FlBorderData(show: false),
               barGroups: AppData.weeklyVolumes.asMap().entries.map((e) =>
                 BarChartGroupData(x: e.key, barRods: [BarChartRodData(
-                  toY: e.value, width: 20, borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                  toY: e.value, width: 20,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
                   gradient: LinearGradient(
                     colors: e.key == 6
                       ? [AppColors.accent, AppColors.accentMid]
@@ -345,7 +621,7 @@ class _WeeklyCard extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Spend Breakdown ──────────────────────────────────
 class _SpendCard extends StatelessWidget {
   @override
@@ -371,8 +647,7 @@ class _SpendCard extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: cat.pct,
                   backgroundColor: cat.color.withOpacity(0.1),
-                  color: cat.color,
-                  minHeight: 6,
+                  color: cat.color, minHeight: 6,
                 ),
               )),
               const SizedBox(width: 10),
@@ -385,7 +660,7 @@ class _SpendCard extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Recent Transactions ──────────────────────────────
 class _RecentList extends StatelessWidget {
   @override
@@ -415,7 +690,8 @@ class _RecentList extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tx.name, style: AppText.body(14, color: AppColors.ink, weight: FontWeight.w600),
+              Text(tx.name,
+                style: AppText.body(14, color: AppColors.ink, weight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text('${tx.platform} · ${tx.time}', style: AppText.label(11)),
@@ -434,3 +710,4 @@ class _RecentList extends StatelessWidget {
     );
   }
 }
+ 
