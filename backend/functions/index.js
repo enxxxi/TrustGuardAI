@@ -2,6 +2,7 @@ const functions = require("firebase-functions");
 const express = require("express");
 const cors = require("cors");
 const admin = require("firebase-admin");
+const axios = require("axios");
 
 admin.initializeApp();
 
@@ -305,4 +306,35 @@ app.get("/fraud-insights", (req, res) => {
     status: "Adaptive learning insights",
     insights
   });
+});
+
+// AI-Powered Transaction Analysis Endpoint
+exports.analyzeTransaction = functions.https.onRequest(async (req, res) => {
+  try {
+    const transactionData = req.body || {};
+
+    // Call your AI API
+    const aiResponse = await axios.post(
+      "http://localhost:8000/predict",
+      transactionData
+    );
+
+    const result = aiResponse.data;
+
+    res.json({
+      success: true,
+      risk_score: result.risk_score,
+      status: result.status,
+    });
+
+  } catch (error) {
+  console.error("FULL ERROR:", error);
+  console.error("MESSAGE:", error.message);
+  console.error("RESPONSE:", error.response?.data);
+
+  res.status(500).json({
+    error: "AI service failed",
+    details: error.message
+  });
+}
 });
