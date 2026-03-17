@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:math' as math;
 import '../theme/app_theme.dart';
 import '../models/app_state.dart';
+import '../models/auth_state.dart';
 import '../widgets/common_widgets.dart';
 import 'transaction_detail_screen.dart';
  
@@ -55,9 +56,25 @@ class _HeroSection extends StatelessWidget {
   final Animation<double> anim;
   const _HeroSection({required this.anim});
  
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning,';
+    if (h < 17) return 'Good afternoon,';
+    return 'Good evening,';
+  }
+ 
+  // Show only first name for a friendlier greeting
+  String _firstName(String fullName) {
+    final parts = fullName.trim().split(' ');
+    return parts.isNotEmpty ? parts.first : fullName;
+  }
+ 
   @override
   Widget build(BuildContext context) {
-    final unread = context.watch<AppState>().unreadCount;
+    final unread  = context.watch<AppState>().unreadCount;
+    // ← reads live from AuthState so it updates when user edits their profile
+    final profile = context.watch<AuthState>().profile;
+ 
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -65,12 +82,15 @@ class _HeroSection extends StatelessWidget {
       ),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 56),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Top bar ──
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          // Brand
           Row(children: [
             Container(
               width: 36, height: 36,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.accent, AppColors.accentMid]),
+                gradient: const LinearGradient(
+                  colors: [AppColors.accent, AppColors.accentMid]),
                 borderRadius: BorderRadius.circular(10),
               ),
               alignment: Alignment.center,
@@ -82,39 +102,69 @@ class _HeroSection extends StatelessWidget {
               Text('AI Fraud Shield', style: AppText.label(10, color: AppColors.darkText)),
             ]),
           ]),
-          GestureDetector(
-            onTap: () => context.read<AppState>().setNav(3),
-            child: Stack(children: [
-              Container(
-                width: 40, height: 40,
+ 
+          // Avatar + Bell
+          Row(children: [
+            // Avatar → taps to Profile tab
+            GestureDetector(
+              onTap: () => context.read<AppState>().setNav(4),
+              child: Container(
+                width: 34, height: 34,
                 decoration: BoxDecoration(
                   color: AppColors.darkCard,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.darkBorder),
                 ),
                 alignment: Alignment.center,
-                child: const Text('🔔', style: TextStyle(fontSize: 18)),
+                child: Text(profile.avatarEmoji,
+                  style: const TextStyle(fontSize: 18)),
               ),
-              if (unread > 0) Positioned(
-                top: 6, right: 6,
-                child: Container(
-                  width: 16, height: 16,
+            ),
+            const SizedBox(width: 8),
+            // Bell → taps to Alerts tab
+            GestureDetector(
+              onTap: () => context.read<AppState>().setNav(3),
+              child: Stack(children: [
+                Container(
+                  width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.danger, shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.dark1, width: 1.5),
+                    color: AppColors.darkCard,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.darkBorder),
                   ),
                   alignment: Alignment.center,
-                  child: Text('$unread', style: AppText.tag(8, color: Colors.white)),
+                  child: const Text('🔔', style: TextStyle(fontSize: 18)),
                 ),
-              ),
-            ]),
-          ),
+                if (unread > 0) Positioned(
+                  top: 6, right: 6,
+                  child: Container(
+                    width: 16, height: 16,
+                    decoration: BoxDecoration(
+                      color: AppColors.danger, shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.dark1, width: 1.5),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text('$unread',
+                      style: AppText.tag(8, color: Colors.white)),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
         ]),
+ 
         const SizedBox(height: 20),
-        Text('Good afternoon,', style: AppText.body(13, color: AppColors.darkText)),
+ 
+        // ── Greeting ──
+        Text(_greeting(),
+          style: AppText.body(13, color: AppColors.darkText)),
         const SizedBox(height: 2),
-        Text('Aisha Binti Razak 👋', style: AppText.h1(22, color: Colors.white)),
+        // Shows first name + avatar emoji from the logged-in account
+        Text('${_firstName(profile.name)} ${profile.avatarEmoji}',
+          style: AppText.h1(22, color: Colors.white)),
         const SizedBox(height: 14),
+ 
+        // ── Shield card ──
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -129,7 +179,8 @@ class _HeroSection extends StatelessWidget {
                 animation: anim,
                 builder: (_, __) => CustomPaint(
                   painter: _RingPainter(progress: anim.value * 0.80),
-                  child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  child: Center(child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center, children: [
                     Text('80%', style: AppText.mono(16, color: Colors.white)),
                     Text('safe', style: AppText.label(8, color: AppColors.darkText)),
                   ])),
@@ -148,16 +199,19 @@ class _HeroSection extends StatelessWidget {
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Container(width: 6, height: 6,
-                      decoration: const BoxDecoration(color: AppColors.safe, shape: BoxShape.circle)),
+                      decoration: const BoxDecoration(
+                        color: AppColors.safe, shape: BoxShape.circle)),
                     const SizedBox(width: 5),
                     Text('Protected', style: AppText.tag(9, color: AppColors.safe)),
                   ]),
                 ),
                 const Spacer(),
-                Text('XGBoost v2.4', style: AppText.label(9, color: AppColors.darkText2)),
+                Text('XGBoost v2.4',
+                  style: AppText.label(9, color: AppColors.darkText2)),
               ]),
               const SizedBox(height: 8),
-              Text('Real-time monitoring active. No threats detected in the last 30 minutes.',
+              Text(
+                'Real-time monitoring active. No threats detected in the last 30 minutes.',
                 style: AppText.body(11, color: AppColors.darkText)),
               const SizedBox(height: 10),
               Row(children: [
@@ -182,10 +236,11 @@ class _MicroStat extends StatelessWidget {
   final Color color;
   const _MicroStat(this.val, this.label, this.color);
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text(val, style: AppText.mono(12, color: color)),
-    Text(label, style: AppText.label(9, color: AppColors.darkText2)),
-  ]);
+  Widget build(BuildContext context) =>
+    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(val, style: AppText.mono(12, color: color)),
+      Text(label, style: AppText.label(9, color: AppColors.darkText2)),
+    ]);
 }
  
 class _RingPainter extends CustomPainter {
@@ -195,12 +250,18 @@ class _RingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
     final r = size.width / 2 - 6;
-    canvas.drawCircle(c, r, Paint()..color = Colors.white.withOpacity(0.08)
-      ..style = PaintingStyle.stroke..strokeWidth = 6);
-    canvas.drawArc(Rect.fromCircle(center: c, radius: r),
+    canvas.drawCircle(c, r, Paint()
+      ..color = Colors.white.withOpacity(0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6);
+    canvas.drawArc(
+      Rect.fromCircle(center: c, radius: r),
       -math.pi / 2, 2 * math.pi * progress, false,
-      Paint()..color = AppColors.safe..style = PaintingStyle.stroke
-        ..strokeWidth = 6..strokeCap = StrokeCap.round);
+      Paint()
+        ..color = AppColors.safe
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6
+        ..strokeCap = StrokeCap.round);
   }
   @override bool shouldRepaint(_RingPainter o) => o.progress != progress;
 }
@@ -295,23 +356,25 @@ class _TapChipState extends State<_TapChip> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapUp:   (_) { setState(() => _pressed = false); widget.onTap(); },
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         decoration: BoxDecoration(
-          color: _pressed ? widget.color.withOpacity(0.06) : Colors.transparent,
+          color: _pressed
+            ? widget.color.withOpacity(0.06)
+            : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Column(children: [
           Text(widget.value, style: AppText.h1(20, color: widget.color)),
           const SizedBox(height: 2),
-          Text(widget.sub, style: AppText.label(9, color: widget.color.withOpacity(0.75))),
+          Text(widget.sub,
+            style: AppText.label(9, color: widget.color.withOpacity(0.75))),
           const SizedBox(height: 2),
           Text(widget.label, style: AppText.label(10, color: AppColors.ink3)),
           const SizedBox(height: 4),
-          // Tap hint
           Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.touch_app_rounded, size: 9, color: AppColors.ink4),
             const SizedBox(width: 2),
@@ -341,7 +404,6 @@ class _KpiSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalAmt = txs.fold(0.0, (s, t) => s + t.amount);
- 
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.card,
@@ -349,22 +411,18 @@ class _KpiSheet extends StatelessWidget {
       ),
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        // Drag handle
         Center(child: Container(
           width: 40, height: 4,
           margin: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: AppColors.card3, borderRadius: BorderRadius.circular(2)),
         )),
- 
-        // Header
         Row(children: [
           Container(
             width: 42, height: 42,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
+              borderRadius: BorderRadius.circular(12)),
             alignment: Alignment.center,
             child: Icon(_statusIcon(color), color: color, size: 20),
           ),
@@ -380,14 +438,12 @@ class _KpiSheet extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.card2, borderRadius: BorderRadius.circular(8)),
               alignment: Alignment.center,
-              child: const Icon(Icons.close_rounded, size: 16, color: AppColors.ink3),
+              child: const Icon(Icons.close_rounded,
+                size: 16, color: AppColors.ink3),
             ),
           ),
         ]),
- 
         const SizedBox(height: 14),
- 
-        // Summary stats
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -407,10 +463,7 @@ class _KpiSheet extends StatelessWidget {
               'Avg Risk', color)),
           ]),
         ),
- 
         const SizedBox(height: 14),
- 
-        // Transaction list
         if (txs.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 32),
@@ -453,13 +506,14 @@ class _KpiSheet extends StatelessWidget {
                         width: 40, height: 40,
                         decoration: BoxDecoration(
                           color: color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(11),
-                        ),
+                          borderRadius: BorderRadius.circular(11)),
                         alignment: Alignment.center,
-                        child: Text(tx.emoji, style: const TextStyle(fontSize: 18)),
+                        child: Text(tx.emoji,
+                          style: const TextStyle(fontSize: 18)),
                       ),
                       const SizedBox(width: 11),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(tx.name,
                           style: AppText.body(13, color: AppColors.ink,
                             weight: FontWeight.w600),
@@ -473,11 +527,11 @@ class _KpiSheet extends StatelessWidget {
                           style: AppText.mono(13, color: AppColors.ink)),
                         const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
                           decoration: BoxDecoration(
                             color: color.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
+                            borderRadius: BorderRadius.circular(5)),
                           child: Text('${tx.riskScore}%',
                             style: AppText.tag(9, color: color)),
                         ),
@@ -532,15 +586,16 @@ class _ActiveAlertBanner extends StatelessWidget {
               width: 38, height: 38,
               decoration: BoxDecoration(
                 color: AppColors.danger.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
+                borderRadius: BorderRadius.circular(10)),
               alignment: Alignment.center,
               child: const Text('🚨', style: TextStyle(fontSize: 18)),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Suspicious activity detected',
-                style: AppText.body(13, color: AppColors.danger, weight: FontWeight.w700)),
+                style: AppText.body(13,
+                  color: AppColors.danger, weight: FontWeight.w700)),
               const SizedBox(height: 2),
               Text('RM 1,200 blocked — new device from Indonesia. Tap to review.',
                 style: AppText.body(11, color: AppColors.ink2)),
@@ -567,9 +622,11 @@ class _WeeklyCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: AppColors.accentLight, borderRadius: BorderRadius.circular(8)),
+                color: AppColors.accentLight,
+                borderRadius: BorderRadius.circular(8)),
               child: Text('RM 906 total',
-                style: AppText.label(11, color: AppColors.accent, weight: FontWeight.w700)),
+                style: AppText.label(11,
+                  color: AppColors.accent, weight: FontWeight.w700)),
             ),
           ]),
           const SizedBox(height: 4),
@@ -585,15 +642,15 @@ class _WeeklyCard extends StatelessWidget {
                   tooltipBgColor: AppColors.ink,
                   getTooltipItem: (group, _, rod, __) => BarTooltipItem(
                     '${AppData.weekDays[group.x]}\nRM ${rod.toY.toInt()}',
-                    AppText.label(10, color: Colors.white),
-                  ),
+                    AppText.label(10, color: Colors.white)),
                 ),
               ),
               titlesData: FlTitlesData(
                 bottomTitles: AxisTitles(sideTitles: SideTitles(
                   showTitles: true, reservedSize: 22,
-                  getTitlesWidget: (v, _) => Text(
-                    AppData.weekDays[v.toInt()], style: AppText.label(10)),
+                  getTitlesWidget: (v, _) =>
+                    Text(AppData.weekDays[v.toInt()],
+                      style: AppText.label(10)),
                 )),
                 leftTitles:  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -606,13 +663,13 @@ class _WeeklyCard extends StatelessWidget {
               barGroups: AppData.weeklyVolumes.asMap().entries.map((e) =>
                 BarChartGroupData(x: e.key, barRods: [BarChartRodData(
                   toY: e.value, width: 20,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(6)),
                   gradient: LinearGradient(
                     colors: e.key == 6
                       ? [AppColors.accent, AppColors.accentMid]
                       : [AppColors.accentSoft, AppColors.accentLight],
-                    begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                  ),
+                    begin: Alignment.bottomCenter, end: Alignment.topCenter),
                 )])).toList(),
             )),
           ),
@@ -641,18 +698,20 @@ class _SpendCard extends StatelessWidget {
               Text(cat.emoji, style: const TextStyle(fontSize: 15)),
               const SizedBox(width: 10),
               SizedBox(width: 72, child: Text(cat.name,
-                style: AppText.body(12, color: AppColors.ink, weight: FontWeight.w500))),
+                style: AppText.body(12,
+                  color: AppColors.ink, weight: FontWeight.w500))),
               Expanded(child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: cat.pct,
                   backgroundColor: cat.color.withOpacity(0.1),
-                  color: cat.color, minHeight: 6,
-                ),
+                  color: cat.color, minHeight: 6),
               )),
               const SizedBox(width: 10),
-              SizedBox(width: 54, child: Text('RM ${cat.amount.toStringAsFixed(0)}',
-                style: AppText.mono(11, color: AppColors.ink2), textAlign: TextAlign.right)),
+              SizedBox(width: 54, child: Text(
+                'RM ${cat.amount.toStringAsFixed(0)}',
+                style: AppText.mono(11, color: AppColors.ink2),
+                textAlign: TextAlign.right)),
             ]),
           )),
         ]),
@@ -673,7 +732,8 @@ class _RecentList extends StatelessWidget {
         child: AppCard(
           padding: const EdgeInsets.all(13),
           onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => TransactionDetailScreen(tx: tx))),
+            MaterialPageRoute(
+              builder: (_) => TransactionDetailScreen(tx: tx))),
           child: Row(children: [
             Container(
               width: 44, height: 44,
@@ -683,18 +743,20 @@ class _RecentList extends StatelessWidget {
                   TxStatus.flagged  => AppColors.warnLight,
                   TxStatus.blocked  => AppColors.dangerLight,
                 },
-                borderRadius: BorderRadius.circular(12),
-              ),
+                borderRadius: BorderRadius.circular(12)),
               alignment: Alignment.center,
               child: Text(tx.emoji, style: const TextStyle(fontSize: 20)),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tx.name,
-                style: AppText.body(14, color: AppColors.ink, weight: FontWeight.w600),
+                style: AppText.body(14,
+                  color: AppColors.ink, weight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text('${tx.platform} · ${tx.time}', style: AppText.label(11)),
+              Text('${tx.platform} · ${tx.time}',
+                style: AppText.label(11)),
               const SizedBox(height: 5),
               RiskBadge(score: tx.riskScore),
             ])),
