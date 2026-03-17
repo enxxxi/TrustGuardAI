@@ -8,36 +8,27 @@ class TransactionDetailScreen extends StatelessWidget {
   final Transaction tx;
   const TransactionDetailScreen({super.key, required this.tx});
 
-  Color get _statusColor => switch (tx.status) {
-    TxStatus.approved => AppColors.safe,
-    TxStatus.flagged  => AppColors.warn,
-    TxStatus.blocked  => AppColors.danger,
+  Color get _sc => switch (tx.status) {
+    TxStatus.approved => AppColors.safe, TxStatus.flagged => AppColors.warn, TxStatus.blocked => AppColors.danger,
+  };
+  String get _sl => switch (tx.status) {
+    TxStatus.approved => '✓  APPROVED', TxStatus.flagged => '⚑  FLAGGED', TxStatus.blocked => '✕  BLOCKED',
   };
 
-  String get _statusLabel => switch (tx.status) {
-    TxStatus.approved => '✓  APPROVED',
-    TxStatus.flagged  => '⚑  FLAGGED',
-    TxStatus.blocked  => '⛔  BLOCKED',
-  };
-
-  List<_Factor> get _factors {
-    final f = <_Factor>[];
-    if (tx.riskScore > 60) {
-      f.add(_Factor('⚠', 'Unusual amount', 'RM ${tx.amount.toStringAsFixed(0)} is ${(tx.amount / 52).toStringAsFixed(0)}× your average (RM 52)', AppColors.danger));
-    }
-    if (tx.location.contains('IP') || tx.location.contains('VPN')) {
-      f.add(_Factor('🌐', 'Geographic anomaly', 'Login origin does not match wallet region', AppColors.danger));
-    }
-    if (tx.riskScore > 50) {
-      f.add(_Factor('📱', 'New device fingerprint', 'Device not seen in previous 90 days', AppColors.warn));
-    }
-    if (tx.time.startsWith('02') || tx.time.startsWith('03')) {
-      f.add(_Factor('🌙', 'Off-hours transaction', 'Activity at ${tx.time} AM is outside normal pattern', AppColors.warn));
-    }
+  List<({String icon, String title, String desc, Color color})> get _factors {
+    final f = <({String icon, String title, String desc, Color color})>[];
+    if (tx.riskScore > 60)
+      f.add((icon:'💰', title:'Unusual amount', desc:'RM ${tx.amount.toStringAsFixed(0)} is ${(tx.amount/52).toStringAsFixed(0)}× your average of RM 52', color:AppColors.danger));
+    if (tx.location.contains('IP') || tx.location.contains('VPN'))
+      f.add((icon:'🌐', title:'Geographic anomaly', desc:'Login origin does not match your registered wallet region', color:AppColors.danger));
+    if (tx.riskScore > 50)
+      f.add((icon:'📱', title:'New device fingerprint', desc:'This device has not been seen in the past 90 days', color:AppColors.warn));
+    if (tx.time.startsWith('02') || tx.time.startsWith('03'))
+      f.add((icon:'🌙', title:'Off-hours activity', desc:'Transaction at ${tx.time} falls outside your normal usage pattern', color:AppColors.warn));
     if (tx.riskScore <= 30) {
-      f.add(_Factor('✓', 'Known device', 'Verified device fingerprint matches history', AppColors.safe));
-      f.add(_Factor('✓', 'Home region', 'Location consistent with usage history', AppColors.safe));
-      f.add(_Factor('✓', 'Normal amount', 'Within expected spending range', AppColors.safe));
+      f.add((icon:'✓', title:'Known device', desc:'Verified device fingerprint matches your history', color:AppColors.safe));
+      f.add((icon:'✓', title:'Home region', desc:'Location is consistent with your registered address', color:AppColors.safe));
+      f.add((icon:'✓', title:'Normal amount', desc:'Within your expected daily spending range', color:AppColors.safe));
     }
     return f;
   }
@@ -49,9 +40,8 @@ class TransactionDetailScreen extends StatelessWidget {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // App bar
           SliverAppBar(
-            expandedHeight: 200,
+            expandedHeight: 210,
             pinned: true,
             backgroundColor: AppColors.dark1,
             leading: GestureDetector(
@@ -69,30 +59,34 @@ class TransactionDetailScreen extends StatelessWidget {
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
-                    colors: [AppColors.dark1, AppColors.dark2],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    const SizedBox(height: 40),
-                    Text(tx.emoji, style: const TextStyle(fontSize: 42)),
-                    const SizedBox(height: 8),
-                    Text('RM ${tx.amount.toStringAsFixed(2)}',
-                      style: AppText.display(28, color: Colors.white)),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _statusColor.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _statusColor.withOpacity(0.4)),
-                      ),
-                      child: Text(_statusLabel, style: AppText.mono(13, color: _statusColor, weight: FontWeight.w700)),
+                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    colors: [AppColors.dark1, AppColors.dark2])),
+                child: SafeArea(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const SizedBox(height: 36),
+                  Container(
+                    width: 62, height: 62,
+                    decoration: BoxDecoration(
+                      color: _sc.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _sc.withOpacity(0.3)),
                     ),
-                  ]),
-                ),
+                    alignment: Alignment.center,
+                    child: Text(tx.emoji, style: const TextStyle(fontSize: 28)),
+                  ),
+                  const SizedBox(height: 10),
+                  Text('RM ${tx.amount.toStringAsFixed(2)}',
+                    style: AppText.h1(28, color: Colors.white)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _sc.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _sc.withOpacity(0.35)),
+                    ),
+                    child: Text(_sl, style: AppText.tag(12, color: _sc)),
+                  ),
+                ])),
               ),
             ),
           ),
@@ -101,99 +95,89 @@ class TransactionDetailScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(children: [
 
-              // Risk gauge card
+              // Risk gauge
               AppCard(child: Column(children: [
                 Row(children: [
-                  SizedBox(
-                    width: 72, height: 72,
-                    child: Stack(alignment: Alignment.center, children: [
-                      SizedBox(width: 72, height: 72,
-                        child: CircularProgressIndicator(
-                          value: tx.riskScore / 100,
-                          backgroundColor: AppColors.border,
-                          color: _statusColor,
-                          strokeWidth: 6,
-                          strokeCap: StrokeCap.round,
-                        ),
-                      ),
-                      Text('${tx.riskScore}%', style: AppText.mono(14, color: _statusColor, weight: FontWeight.w700)),
+                  SizedBox(width: 68, height: 68, child: Stack(alignment: Alignment.center, children: [
+                    SizedBox(width: 68, height: 68, child: CircularProgressIndicator(
+                      value: tx.riskScore / 100, backgroundColor: AppColors.card3,
+                      color: _sc, strokeWidth: 6, strokeCap: StrokeCap.round)),
+                    Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Text('${tx.riskScore}%', style: AppText.mono(14, color: _sc)),
+                      Text('risk', style: AppText.label(9, color: AppColors.ink3)),
                     ]),
-                  ),
+                  ])),
                   const SizedBox(width: 16),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Risk Score', style: AppText.body(12, color: AppColors.ink3)),
+                    Text('Risk Score', style: AppText.label(12)),
                     const SizedBox(height: 2),
-                    Text('${tx.riskScore} / 100', style: AppText.display(22, color: _statusColor)),
-                    const SizedBox(height: 4),
-                    Text(tx.riskScore >= 70 ? 'High risk — transaction blocked automatically'
-                      : tx.riskScore >= 35 ? 'Medium risk — flagged for manual review'
-                      : 'Low risk — transaction approved',
-                      style: AppText.body(11, color: AppColors.ink2)),
+                    Text('${tx.riskScore} out of 100', style: AppText.h1(20, color: _sc)),
+                    const SizedBox(height: 6),
+                    Text(tx.riskScore >= 70
+                      ? 'High risk — automatically blocked by AI'
+                      : tx.riskScore >= 35
+                        ? 'Medium risk — flagged for manual review'
+                        : 'Low risk — transaction approved safely',
+                      style: AppText.body(12)),
                   ])),
                 ]),
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: AppColors.divider),
                 const SizedBox(height: 14),
-                const Divider(color: AppColors.border, height: 1),
-                const SizedBox(height: 12),
-                // Risk breakdown bars
-                _RiskBar('Amount', tx.amount > 500 ? 0.85 : 0.2, _statusColor),
+                _FactorBar('Amount',   tx.amount > 500 ? 0.85 : 0.2,   _sc),
                 const SizedBox(height: 8),
-                _RiskBar('Location', tx.location.contains('IP') ? 0.9 : 0.1, _statusColor),
+                _FactorBar('Location', tx.location.contains('IP') ? 0.9 : 0.1, _sc),
                 const SizedBox(height: 8),
-                _RiskBar('Device', tx.riskScore > 60 ? 0.75 : 0.1, _statusColor),
+                _FactorBar('Device',   tx.riskScore > 60 ? 0.75 : 0.1, _sc),
                 const SizedBox(height: 8),
-                _RiskBar('Time', (tx.time.startsWith('02') || tx.time.startsWith('03')) ? 0.8 : 0.15, _statusColor),
+                _FactorBar('Time',     (tx.time.startsWith('02') || tx.time.startsWith('03')) ? 0.8 : 0.15, _sc),
               ])),
 
               const SizedBox(height: 12),
 
-              // Transaction details
+              // Details
               AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Transaction Details', style: AppText.display(15)),
+                Text('Transaction Details', style: AppText.h2(15)),
                 const SizedBox(height: 12),
-                const Divider(color: AppColors.border, height: 1),
-                const SizedBox(height: 8),
                 InfoRow(label: 'Transaction ID', value: tx.id),
-                InfoRow(label: 'Platform', value: tx.platform),
-                InfoRow(label: 'Amount', value: 'RM ${tx.amount.toStringAsFixed(2)}'),
-                InfoRow(label: 'Date & Time', value: '${tx.date} · ${tx.time}'),
-                InfoRow(label: 'Location', value: tx.location),
-                InfoRow(label: 'User Type', value: tx.userType),
-                InfoRow(label: 'Status', value: _statusLabel, valueColor: _statusColor),
+                InfoRow(label: 'Platform',       value: tx.platform),
+                InfoRow(label: 'Amount',         value: 'RM ${tx.amount.toStringAsFixed(2)}'),
+                InfoRow(label: 'Date & Time',    value: '${tx.date} · ${tx.time}'),
+                InfoRow(label: 'Location',       value: tx.location),
+                InfoRow(label: 'User Type',      value: tx.userType),
+                InfoRow(label: 'Status',         value: _sl, valueColor: _sc, divider: false),
               ])),
 
               const SizedBox(height: 12),
 
-              // Risk factors
+              // Explainable AI
               AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text('Risk Factors', style: AppText.display(15)),
+                  Text('Risk Factors', style: AppText.h2(15)),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentLight,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text('Explainable AI', style: AppText.mono(9, color: AppColors.accent)),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: AppColors.accentLight, borderRadius: BorderRadius.circular(6)),
+                    child: Text('Explainable AI', style: AppText.tag(9, color: AppColors.accent)),
                   ),
                 ]),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 ..._factors.map((f) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Container(
-                      width: 34, height: 34,
+                      width: 36, height: 36,
                       decoration: BoxDecoration(
-                        color: f.color.withOpacity(0.12),
+                        color: f.color.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       alignment: Alignment.center,
                       child: Text(f.icon, style: const TextStyle(fontSize: 16)),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(f.title, style: AppText.body(13, weight: FontWeight.w600, color: f.color)),
+                      Text(f.title, style: AppText.body(13, color: f.color, weight: FontWeight.w700)),
                       const SizedBox(height: 2),
-                      Text(f.desc, style: AppText.body(11, color: AppColors.ink2)),
+                      Text(f.desc, style: AppText.body(12)),
                     ])),
                   ]),
                 )),
@@ -205,42 +189,41 @@ class TransactionDetailScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: AppColors.dangerLight,
-                    border: Border.all(color: AppColors.danger.withOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.danger.withOpacity(0.2)),
                   ),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('⛔', style: TextStyle(fontSize: 18)),
+                    Text('✕', style: TextStyle(fontSize: 16, color: AppColors.danger, fontWeight: FontWeight.w700)),
                     const SizedBox(width: 10),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('Block Reason', style: AppText.body(13, color: AppColors.danger, weight: FontWeight.w700)),
                       const SizedBox(height: 4),
-                      Text(tx.blockReason!, style: AppText.body(12, color: AppColors.ink2)),
+                      Text(tx.blockReason!, style: AppText.body(12)),
                     ])),
                   ]),
                 ),
               ],
 
-              const SizedBox(height: 12),
-
-              // Actions
-              if (tx.status == TxStatus.flagged || tx.status == TxStatus.blocked)
+              if (tx.status == TxStatus.flagged || tx.status == TxStatus.blocked) ...[
+                const SizedBox(height: 12),
                 AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Analyst Actions', style: AppText.display(15)),
-                  const SizedBox(height: 6),
+                  Text('Analyst Actions', style: AppText.h2(15)),
+                  const SizedBox(height: 4),
                   Text('Manually override the AI decision if needed.',
-                    style: AppText.body(12, color: AppColors.ink3)),
+                    style: AppText.body(12)),
                   const SizedBox(height: 14),
                   Row(children: [
-                    Expanded(child: _ActionButton('✓ Approve', AppColors.safe, AppColors.safeLight,
-                      () => _showSnack(context, 'Transaction approved manually'))),
+                    Expanded(child: _ActBtn('✓ Approve', AppColors.safe, AppColors.safeLight,
+                      () => _snack(context, 'Transaction approved manually'))),
                     const SizedBox(width: 8),
-                    Expanded(child: _ActionButton('🔍 Review', AppColors.accent, AppColors.accentLight,
-                      () => _showSnack(context, 'Sent to fraud team for review'))),
+                    Expanded(child: _ActBtn('🔍 Review', AppColors.accent, AppColors.accentLight,
+                      () => _snack(context, 'Sent to fraud team for review'))),
                     const SizedBox(width: 8),
-                    Expanded(child: _ActionButton('⛔ Block', AppColors.danger, AppColors.dangerLight,
-                      () => _showSnack(context, 'Transaction permanently blocked'))),
+                    Expanded(child: _ActBtn('✕ Block', AppColors.danger, AppColors.dangerLight,
+                      () => _snack(context, 'Transaction permanently blocked'))),
                   ]),
                 ])),
+              ],
 
               const SizedBox(height: 24),
             ]),
@@ -250,44 +233,34 @@ class TransactionDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _RiskBar(String label, double val, Color color) {
-    return Row(children: [
-      SizedBox(width: 70, child: Text(label, style: AppText.body(11, color: AppColors.ink3))),
-      Expanded(child: ClipRRect(
-        borderRadius: BorderRadius.circular(3),
-        child: LinearProgressIndicator(value: val, backgroundColor: AppColors.border, color: color, minHeight: 6),
-      )),
-      const SizedBox(width: 8),
-      Text('${(val * 100).toInt()}%', style: AppText.mono(10, color: color, weight: FontWeight.w500)),
-    ]);
-  }
+  Widget _FactorBar(String label, double val, Color color) => Row(children: [
+    SizedBox(width: 66, child: Text(label, style: AppText.label(11))),
+    Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(4),
+      child: LinearProgressIndicator(value: val, backgroundColor: color.withOpacity(0.1),
+        color: color, minHeight: 6))),
+    const SizedBox(width: 8),
+    SizedBox(width: 32, child: Text('${(val * 100).toInt()}%',
+      style: AppText.mono(10, color: color), textAlign: TextAlign.right)),
+  ]);
 
-  Widget _ActionButton(String label, Color fg, Color bg, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
+  Widget _ActBtn(String label, Color fg, Color bg, VoidCallback onTap) =>
+    GestureDetector(onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 11),
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: fg.withOpacity(0.3))),
+          border: Border.all(color: fg.withOpacity(0.25))),
         alignment: Alignment.center,
-        child: Text(label, style: AppText.body(11, color: fg, weight: FontWeight.w700)),
-      ),
-    );
-  }
+        child: Text(label, style: AppText.label(12, color: fg, weight: FontWeight.w700)),
+      ));
 
-  void _showSnack(BuildContext context, String msg) {
+  void _snack(BuildContext context, String msg) {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg, style: AppText.body(13, color: Colors.white)),
       backgroundColor: AppColors.ink,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.all(16),
     ));
   }
-}
-
-class _Factor {
-  final String icon, title, desc;
-  final Color color;
-  const _Factor(this.icon, this.title, this.desc, this.color);
 }

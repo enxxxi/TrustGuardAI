@@ -13,26 +13,23 @@ class TransactionsScreen extends StatefulWidget {
 class _TransactionsScreenState extends State<TransactionsScreen> {
   int _filter = 0;
   String _search = '';
-  final _searchCtrl = TextEditingController();
-
+  final _ctrl = TextEditingController();
   final _filters = ['All', 'Approved', 'Flagged', 'Blocked'];
 
-  List<Transaction> get _filtered {
-    var list = AppData.transactions.where((tx) {
-      final matchFilter = _filter == 0
-        || (_filter == 1 && tx.status == TxStatus.approved)
-        || (_filter == 2 && tx.status == TxStatus.flagged)
-        || (_filter == 3 && tx.status == TxStatus.blocked);
-      final matchSearch = _search.isEmpty
-        || tx.name.toLowerCase().contains(_search.toLowerCase())
-        || tx.id.toLowerCase().contains(_search.toLowerCase());
-      return matchFilter && matchSearch;
-    }).toList();
-    return list;
-  }
+  List<Transaction> get _filtered => AppData.transactions.where((tx) {
+    final mf = _filter == 0
+      || (_filter == 1 && tx.status == TxStatus.approved)
+      || (_filter == 2 && tx.status == TxStatus.flagged)
+      || (_filter == 3 && tx.status == TxStatus.blocked);
+    final ms = _search.isEmpty
+      || tx.name.toLowerCase().contains(_search.toLowerCase())
+      || tx.id.toLowerCase().contains(_search.toLowerCase());
+    return mf && ms;
+  }).toList();
 
   @override
   Widget build(BuildContext context) {
+    final total = AppData.transactions.fold(0.0, (s, t) => s + t.amount);
     return Column(children: [
       // Header
       Container(
@@ -40,15 +37,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('Transactions', style: AppText.display(22)),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Transactions', style: AppText.h1(22)),
+              Text('${_filtered.length} records · RM ${total.toStringAsFixed(0)} total',
+                style: AppText.label(12)),
+            ]),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(color: AppColors.accentLight, borderRadius: BorderRadius.circular(8)),
-              child: Text('${_filtered.length} records', style: AppText.mono(11, color: AppColors.accent)),
+              child: Text('${_filtered.length}', style: AppText.mono(14, color: AppColors.accent)),
             ),
           ]),
           const SizedBox(height: 12),
-          // Search bar
           Container(
             height: 42,
             decoration: BoxDecoration(
@@ -58,22 +58,23 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
             child: Row(children: [
               const SizedBox(width: 12),
-              const Icon(Icons.search, color: AppColors.ink3, size: 18),
+              Icon(Icons.search_rounded, color: AppColors.ink4, size: 18),
               const SizedBox(width: 8),
               Expanded(child: TextField(
-                controller: _searchCtrl,
+                controller: _ctrl,
                 onChanged: (v) => setState(() => _search = v),
                 style: AppText.body(13),
                 decoration: InputDecoration(
-                  hintText: 'Search transactions...',
-                  hintStyle: AppText.body(13, color: AppColors.ink3),
-                  border: InputBorder.none,
-                  isDense: true,
+                  hintText: 'Search by name or ID...',
+                  hintStyle: AppText.label(13),
+                  border: InputBorder.none, isDense: true,
+                  contentPadding: EdgeInsets.zero,
                 ),
               )),
               if (_search.isNotEmpty) GestureDetector(
-                onTap: () { _searchCtrl.clear(); setState(() => _search = ''); },
-                child: const Padding(padding: EdgeInsets.all(8), child: Icon(Icons.close, size: 16, color: AppColors.ink3)),
+                onTap: () { _ctrl.clear(); setState(() => _search = ''); },
+                child: Padding(padding: const EdgeInsets.all(10),
+                  child: Icon(Icons.close_rounded, size: 16, color: AppColors.ink3)),
               ),
             ]),
           ),
@@ -82,29 +83,26 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ]),
       ),
 
-      // Summary row
+      // Summary bar
       Container(
-        color: AppColors.bg,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
         child: Row(children: [
-          _SummaryChip('${AppData.transactions.where((t) => t.status == TxStatus.approved).length}', 'Approved', AppColors.safe),
+          _SChip('${AppData.transactions.where((t) => t.status == TxStatus.approved).length}', 'Approved', AppColors.safe),
           const SizedBox(width: 8),
-          _SummaryChip('${AppData.transactions.where((t) => t.status == TxStatus.flagged).length}', 'Flagged', AppColors.warn),
+          _SChip('${AppData.transactions.where((t) => t.status == TxStatus.flagged).length}',  'Flagged',  AppColors.warn),
           const SizedBox(width: 8),
-          _SummaryChip('${AppData.transactions.where((t) => t.status == TxStatus.blocked).length}', 'Blocked', AppColors.danger),
-          const Spacer(),
-          Text('Total: RM ${AppData.transactions.fold(0.0, (s, t) => s + t.amount).toStringAsFixed(0)}',
-            style: AppText.mono(11, color: AppColors.ink2, weight: FontWeight.w600)),
+          _SChip('${AppData.transactions.where((t) => t.status == TxStatus.blocked).length}',  'Blocked',  AppColors.danger),
         ]),
       ),
 
-      // List
       Expanded(
         child: _filtered.isEmpty
           ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Text('🔍', style: TextStyle(fontSize: 40)),
+              Icon(Icons.search_off_rounded, size: 48, color: AppColors.ink4),
               const SizedBox(height: 12),
-              Text('No transactions found', style: AppText.body(14, color: AppColors.ink3)),
+              Text('No results found', style: AppText.h2(16, color: AppColors.ink3)),
+              const SizedBox(height: 4),
+              Text('Try a different filter or search term', style: AppText.label(13)),
             ]))
           : ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -117,20 +115,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 }
 
-Widget _SummaryChip(String val, String label, Color color) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Row(children: [
-      Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-      const SizedBox(width: 5),
-      Text('$val $label', style: AppText.body(11, color: color, weight: FontWeight.w600)),
-    ]),
-  );
-}
+Widget _SChip(String val, String label, Color color) => Container(
+  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+  decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+  child: Row(children: [
+    Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+    const SizedBox(width: 5),
+    Text('$val $label', style: AppText.label(11, color: color, weight: FontWeight.w700)),
+  ]),
+);
 
 class _TxRow extends StatelessWidget {
   final Transaction tx;
@@ -142,8 +135,8 @@ class _TxRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: AppCard(
         padding: const EdgeInsets.all(13),
-        onTap: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => TransactionDetailScreen(tx: tx))),
+        onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => TransactionDetailScreen(tx: tx))),
         child: Column(children: [
           Row(children: [
             Container(
@@ -154,32 +147,32 @@ class _TxRow extends StatelessWidget {
                   TxStatus.flagged  => AppColors.warnLight,
                   TxStatus.blocked  => AppColors.dangerLight,
                 },
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
               child: Text(tx.emoji, style: const TextStyle(fontSize: 20)),
             ),
             const SizedBox(width: 11),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tx.name, style: AppText.body(13, weight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+              Text(tx.name, style: AppText.body(14, color: AppColors.ink, weight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text('${tx.id}  ·  ${tx.platform}', style: AppText.mono(10, color: AppColors.ink3)),
+              Text('${tx.id}  ·  ${tx.platform}', style: AppText.label(10)),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text('RM ${tx.amount.toStringAsFixed(2)}',
-                style: AppText.mono(13, weight: FontWeight.w600,
-                  color: tx.status == TxStatus.blocked ? AppColors.danger : AppColors.ink)),
-              const SizedBox(height: 4),
+                style: AppText.mono(13, color: tx.status == TxStatus.blocked ? AppColors.danger : AppColors.ink)),
+              const SizedBox(height: 5),
               StatusPill(status: tx.status, score: tx.riskScore),
             ]),
           ]),
-          const SizedBox(height: 8),
-          Container(height: 1, color: AppColors.border),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: AppColors.divider),
           const SizedBox(height: 8),
           Row(children: [
-            _Meta('📍', tx.location),
+            _M('📍', tx.location),
             const Spacer(),
-            _Meta('🕐', '${tx.date} ${tx.time}'),
+            _M('🕐', '${tx.date} · ${tx.time}'),
             const Spacer(),
             RiskBadge(score: tx.riskScore),
           ]),
@@ -189,8 +182,8 @@ class _TxRow extends StatelessWidget {
   }
 }
 
-Widget _Meta(String icon, String text) => Row(children: [
+Widget _M(String icon, String text) => Row(children: [
   Text(icon, style: const TextStyle(fontSize: 11)),
   const SizedBox(width: 4),
-  Text(text, style: AppText.body(10, color: AppColors.ink3), overflow: TextOverflow.ellipsis),
+  Flexible(child: Text(text, style: AppText.label(10), overflow: TextOverflow.ellipsis)),
 ]);

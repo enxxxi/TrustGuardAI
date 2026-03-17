@@ -14,84 +14,75 @@ class ProfileScreen extends StatelessWidget {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Column(children: [
-        _ProfileHero(),
-        _ProfileStats(),
+        _Hero(),
+        _Stats(),
         SectionHeader(title: 'Behavior Profile'),
-        _BehaviorSection(),
-        SectionHeader(title: 'Monthly Fraud Activity'),
+        _Behavior(),
+        SectionHeader(title: 'Fraud Activity — 12 Months'),
         _FraudChart(),
-        SectionHeader(title: 'Security Settings'),
-        _SecuritySettings(),
+        SectionHeader(title: 'Security'),
+        _Security(),
         SectionHeader(title: 'Account'),
-        _AccountSection(),
-        const SizedBox(height: 32),
+        _Account(),
+        const SizedBox(height: 40),
       ]),
     );
   }
 }
 
-// ── Profile Hero ────────────────────────────────────
-class _ProfileHero extends StatelessWidget {
+class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 18, 24, 68),
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 64),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-        ),
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [AppColors.dark1, AppColors.dark2]),
       ),
       child: Column(children: [
-        // Avatar with ring
         Stack(alignment: Alignment.center, children: [
-          SizedBox(width: 90, height: 90,
-            child: CircularProgressIndicator(
-              value: 0.96, backgroundColor: Colors.white.withOpacity(0.1),
-              color: AppColors.safe, strokeWidth: 3,
-            )),
+          SizedBox(width: 88, height: 88,
+            child: CircularProgressIndicator(value: 0.96,
+              backgroundColor: Colors.white.withOpacity(0.08),
+              color: AppColors.safe, strokeWidth: 3)),
           Container(
-            width: 76, height: 76,
+            width: 74, height: 74,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.accent, Color(0xFF6366F1)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [BoxShadow(color: AppColors.accent.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 6))],
+              gradient: const LinearGradient(colors: [AppColors.accent, Color(0xFF6366F1)],
+                begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: AppShadow.colored(AppColors.accent),
             ),
             alignment: Alignment.center,
             child: const Text('👩', style: TextStyle(fontSize: 32)),
           ),
-          Positioned(bottom: 2, right: 2,
-            child: Container(
-              width: 22, height: 22,
-              decoration: BoxDecoration(
-                color: AppColors.safe, shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF0F172A), width: 2),
-              ),
-              alignment: Alignment.center,
-              child: const Text('✓', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
-            )),
+          Positioned(bottom: 2, right: 0, child: Container(
+            width: 22, height: 22,
+            decoration: BoxDecoration(color: AppColors.safe, shape: BoxShape.circle,
+              border: Border.all(color: AppColors.dark1, width: 2)),
+            alignment: Alignment.center,
+            child: const Icon(Icons.check_rounded, color: Colors.white, size: 13),
+          )),
         ]),
         const SizedBox(height: 12),
-        Text('Aisha Binti Razak', style: AppText.display(20, color: Colors.white)),
-        const SizedBox(height: 3),
-        Text("GrabPay · Touch 'n Go · Gig Worker", style: AppText.body(12, color: Colors.white38)),
-        const SizedBox(height: 10),
-        // Trust score
+        Text('Aisha Binti Razak', style: AppText.h1(20, color: Colors.white)),
+        const SizedBox(height: 4),
+        Text("GrabPay · Touch 'n Go · Gig Worker",
+          style: AppText.label(12, color: AppColors.darkText)),
+        const SizedBox(height: 12),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             color: AppColors.safe.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.safe.withOpacity(0.3)),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.safe.withOpacity(0.25)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Text('🛡️', style: TextStyle(fontSize: 14)),
+            const Text('🛡️', style: TextStyle(fontSize: 13)),
             const SizedBox(width: 6),
-            Text('Trust Score: 96/100', style: AppText.mono(12, color: AppColors.safe, weight: FontWeight.w600)),
+            Text('Trust Score: 96 / 100',
+              style: AppText.label(12, color: AppColors.safe, weight: FontWeight.w700)),
           ]),
         ),
       ]),
@@ -99,24 +90,26 @@ class _ProfileHero extends StatelessWidget {
   }
 }
 
-// ── Profile Stats ───────────────────────────────────
-class _ProfileStats extends StatelessWidget {
+class _Stats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Transform.translate(
-      offset: const Offset(0, -40),
+      offset: const Offset(0, -36),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: AppCard(
-          radius: 16,
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.card, borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border.withOpacity(0.6)),
+            boxShadow: AppShadow.elevated,
+          ),
           child: IntrinsicHeight(child: Row(children: [
             Expanded(child: StatChip(value: '142', label: 'Transactions', color: AppColors.accent)),
-            Container(width: 1, color: AppColors.border, margin: const EdgeInsets.symmetric(vertical: 10)),
+            Container(width: 1, color: AppColors.divider, margin: const EdgeInsets.symmetric(vertical: 12)),
             Expanded(child: StatChip(value: '96%', label: 'Safe Rate', color: AppColors.safe)),
-            Container(width: 1, color: AppColors.border, margin: const EdgeInsets.symmetric(vertical: 10)),
+            Container(width: 1, color: AppColors.divider, margin: const EdgeInsets.symmetric(vertical: 12)),
             Expanded(child: StatChip(value: 'RM 52', label: 'Avg Spend', color: AppColors.warn)),
-            Container(width: 1, color: AppColors.border, margin: const EdgeInsets.symmetric(vertical: 10)),
+            Container(width: 1, color: AppColors.divider, margin: const EdgeInsets.symmetric(vertical: 12)),
             Expanded(child: StatChip(value: '0', label: 'Frauds', color: AppColors.ink3)),
           ])),
         ),
@@ -125,203 +118,141 @@ class _ProfileStats extends StatelessWidget {
   }
 }
 
-// ── Behavior Section ────────────────────────────────
-class _BehaviorSection extends StatelessWidget {
+class _Behavior extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: AppCard(
-        child: Column(
-          children: AppData.behaviorStats.map((s) => BehaviorRow(stat: s)).toList(),
-        ),
-      ),
+      child: AppCard(child: Column(
+        children: AppData.behaviorStats.map((s) => BehaviorRow(stat: s)).toList())),
     );
   }
 }
 
-// ── Fraud Chart ─────────────────────────────────────
 class _FraudChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: AppCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('Fraud Events (12 months)', style: AppText.body(13, weight: FontWeight.w600)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: AppColors.safeLight, borderRadius: BorderRadius.circular(6)),
-              child: Text('0 successful', style: AppText.mono(10, color: AppColors.safe, weight: FontWeight.w600)),
-            ),
-          ]),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 120,
-            child: LineChart(LineChartData(
-              gridData: FlGridData(
-                show: true, drawVerticalLine: false,
-                getDrawingHorizontalLine: (_) => const FlLine(color: AppColors.border, strokeWidth: 1),
-              ),
-              titlesData: FlTitlesData(
-                bottomTitles: AxisTitles(sideTitles: SideTitles(
-                  showTitles: true, reservedSize: 22,
-                  getTitlesWidget: (v, _) {
-                    final idx = v.toInt();
-                    if (idx < 0 || idx >= AppState.months.length) return const SizedBox();
-                    return Text(AppState.months[idx], style: AppText.body(9, color: AppColors.ink3));
-                  },
-                )),
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              ),
-              borderData: FlBorderData(show: false),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: AppState.monthlyFraud.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.toDouble())).toList(),
-                  isCurved: true,
-                  color: AppColors.danger,
-                  barWidth: 2.5,
-                  dotData: FlDotData(
-                    show: true,
-                    getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(radius: 3, color: AppColors.danger, strokeWidth: 0),
-                  ),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    gradient: LinearGradient(
-                      colors: [AppColors.danger.withOpacity(0.15), AppColors.danger.withOpacity(0.0)],
-                      begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
-              ],
-            )),
+      child: AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('Fraud attempts blocked', style: AppText.body(13, color: AppColors.ink, weight: FontWeight.w600)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: AppColors.safeLight, borderRadius: BorderRadius.circular(6)),
+            child: Text('0 successful', style: AppText.tag(9, color: AppColors.safe)),
           ),
-          const SizedBox(height: 8),
-          Text('Peak detected in October (12 attempts, all blocked)',
-            style: AppText.body(11, color: AppColors.ink3)),
         ]),
-      ),
+        const SizedBox(height: 4),
+        Text('All attempts were detected and blocked',
+          style: AppText.label(12)),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 120,
+          child: LineChart(LineChartData(
+            gridData: FlGridData(show: true, drawVerticalLine: false,
+              getDrawingHorizontalLine: (_) => const FlLine(color: AppColors.divider, strokeWidth: 1)),
+            titlesData: FlTitlesData(
+              bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24,
+                getTitlesWidget: (v, _) {
+                  final i = v.toInt();
+                  if (i < 0 || i >= AppState.months.length) return const SizedBox();
+                  return Text(AppState.months[i], style: AppText.label(9));
+                })),
+              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles:  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles:const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            ),
+            borderData: FlBorderData(show: false),
+            lineBarsData: [LineChartBarData(
+              spots: AppState.monthlyFraud.asMap().entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.toDouble())).toList(),
+              isCurved: true, color: AppColors.danger, barWidth: 2.5,
+              dotData: FlDotData(show: true,
+                getDotPainter: (_, __, ___, ____) =>
+                  FlDotCirclePainter(radius: 3, color: AppColors.danger, strokeWidth: 0)),
+              belowBarData: BarAreaData(show: true,
+                gradient: LinearGradient(
+                  colors: [AppColors.danger.withOpacity(0.12), Colors.transparent],
+                  begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+            )],
+          )),
+        ),
+        const SizedBox(height: 8),
+        Text('Peak in October — 12 attempts, all blocked',
+          style: AppText.label(11)),
+      ])),
     );
   }
 }
 
-// ── Security Settings ───────────────────────────────
-class _SecuritySettings extends StatelessWidget {
+class _Security extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final s = context.watch<AppState>();
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(children: [
-        SettingToggleRow(
-          icon: '🛡️', iconBg: AppColors.safeLight,
-          title: 'Real-Time Protection',
-          subtitle: state.realtimeEnabled ? 'AI monitoring active' : 'Protection paused',
-          value: state.realtimeEnabled,
-          onChanged: (_) => state.toggleRealtime(),
-        ),
-        SettingToggleRow(
-          icon: '🔔', iconBg: AppColors.accentLight,
-          title: 'Fraud Alerts',
-          subtitle: state.notifEnabled ? 'Push notifications on' : 'Notifications off',
-          value: state.notifEnabled,
-          onChanged: (_) => state.toggleNotif(),
-        ),
-        SettingToggleRow(
-          icon: '📍', iconBg: AppColors.warnLight,
-          title: 'Location Verification',
-          subtitle: state.locationEnabled ? 'Geofencing enabled' : 'Location off',
-          value: state.locationEnabled,
-          onChanged: (_) => state.toggleLocation(),
-        ),
-        SettingToggleRow(
-          icon: '👆', iconBg: AppColors.accentLight,
-          title: 'Biometric Lock',
-          subtitle: state.biometricEnabled ? 'Fingerprint / Face ID active' : 'Biometric disabled',
-          value: state.biometricEnabled,
-          onChanged: (_) => state.toggleBiometric(),
-        ),
+        SettingToggleRow(icon:'🛡️', iconBg:AppColors.safeLight,
+          title:'Real-Time Protection',
+          subtitle: s.realtimeEnabled ? 'AI monitoring active' : 'Protection paused',
+          value: s.realtimeEnabled, onChanged: (_) => s.toggleRealtime()),
+        SettingToggleRow(icon:'🔔', iconBg:AppColors.accentLight,
+          title:'Fraud Alerts',
+          subtitle: s.notifEnabled ? 'Push notifications on' : 'Notifications off',
+          value: s.notifEnabled, onChanged: (_) => s.toggleNotif()),
+        SettingToggleRow(icon:'📍', iconBg:AppColors.warnLight,
+          title:'Location Verification',
+          subtitle: s.locationEnabled ? 'Geofencing enabled' : 'Location off',
+          value: s.locationEnabled, onChanged: (_) => s.toggleLocation()),
+        SettingToggleRow(icon:'👆', iconBg:AppColors.accentLight,
+          title:'Biometric Lock',
+          subtitle: s.biometricEnabled ? 'Fingerprint / Face ID active' : 'Biometric disabled',
+          value: s.biometricEnabled, onChanged: (_) => s.toggleBiometric()),
       ]),
     );
   }
 }
 
-// ── Account Section ─────────────────────────────────
-class _AccountSection extends StatelessWidget {
+class _Account extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(children: [
-        SettingNavRow(
-          icon: '📱', iconBg: AppColors.card2,
-          title: 'Trusted Devices',
-          subtitle: '2 devices registered',
+        SettingNavRow(icon:'📱', iconBg:AppColors.card2, title:'Trusted Devices', subtitle:'2 devices registered',
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(color: AppColors.accentLight, borderRadius: BorderRadius.circular(6)),
-              child: Text('2', style: AppText.mono(11, color: AppColors.accent, weight: FontWeight.w700)),
-            ),
+              child: Text('2', style: AppText.mono(11, color: AppColors.accent))),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: AppColors.ink3, size: 20),
-          ]),
-        ),
-        SettingNavRow(
-          icon: '🔑', iconBg: AppColors.card2,
-          title: 'Change PIN',
-          subtitle: 'Last changed 30 days ago',
-        ),
-        SettingNavRow(
-          icon: '📊', iconBg: AppColors.accentLight,
-          title: 'Security Report',
-          subtitle: 'Weekly summary available',
+            const Icon(Icons.chevron_right_rounded, color: AppColors.ink4, size: 20),
+          ])),
+        SettingNavRow(icon:'🔑', iconBg:AppColors.card2, title:'Change PIN', subtitle:'Last changed 30 days ago'),
+        SettingNavRow(icon:'📊', iconBg:AppColors.accentLight, title:'Security Report', subtitle:'Weekly summary available',
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: AppColors.safeLight, borderRadius: BorderRadius.circular(6)),
-              child: Text('NEW', style: AppText.mono(9, color: AppColors.safe, weight: FontWeight.w700)),
-            ),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(color: AppColors.safeLight, borderRadius: BorderRadius.circular(5)),
+              child: Text('NEW', style: AppText.tag(8, color: AppColors.safe))),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: AppColors.ink3, size: 20),
-          ]),
-        ),
-        SettingNavRow(
-          icon: '🔒', iconBg: AppColors.card2,
-          title: 'Privacy Settings',
-          subtitle: 'Data sharing & storage',
-        ),
-        SettingNavRow(
-          icon: '❓', iconBg: AppColors.card2,
-          title: 'Help & Support',
-          subtitle: 'FAQ, contact fraud team',
-        ),
-        SettingNavRow(
-          icon: '🚪', iconBg: AppColors.dangerLight,
-          title: 'Sign Out',
-          subtitle: '',
+            const Icon(Icons.chevron_right_rounded, color: AppColors.ink4, size: 20),
+          ])),
+        SettingNavRow(icon:'🔒', iconBg:AppColors.card2, title:'Privacy Settings', subtitle:'Data sharing & storage'),
+        SettingNavRow(icon:'❓', iconBg:AppColors.card2, title:'Help & Support', subtitle:'FAQ, contact fraud team'),
+        SettingNavRow(icon:'🚪', iconBg:AppColors.dangerLight, title:'Sign Out', subtitle:'',
           arrowColor: AppColors.danger,
-          onTap: () => _showSignOutDialog(context),
-        ),
+          onTap: () => showDialog(context: context, builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text('Sign Out?', style: AppText.h2(18)),
+            content: Text('Your real-time fraud protection will be paused.', style: AppText.body(13)),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context),
+                child: Text('Cancel', style: AppText.label(14, color: AppColors.ink3))),
+              TextButton(onPressed: () => Navigator.pop(context),
+                child: Text('Sign Out', style: AppText.label(14, color: AppColors.danger, weight: FontWeight.w700))),
+            ],
+          ))),
       ]),
     );
-  }
-
-  void _showSignOutDialog(BuildContext context) {
-    showDialog(context: context, builder: (_) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Sign Out?', style: AppText.display(18)),
-      content: Text('Your real-time fraud protection will be paused.',
-        style: AppText.body(13, color: AppColors.ink2)),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: AppText.body(14, color: AppColors.ink3))),
-        TextButton(onPressed: () => Navigator.pop(context),
-          child: Text('Sign Out', style: AppText.body(14, color: AppColors.danger, weight: FontWeight.w700))),
-      ],
-    ));
   }
 }

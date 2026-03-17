@@ -3,24 +3,17 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 
-enum _DeviceType { known, newDevice, suspicious }
-enum _LocationType { home, nearby, foreign, vpn }
-enum _TimeType { business, evening, lateNight }
-enum _MerchantType { regular, newMerchant, highRisk }
+enum _Device   { known, newDevice, suspicious }
+enum _Location { home, nearby, foreign, vpn }
+enum _Time     { business, evening, lateNight }
+enum _Merchant { regular, newMerchant, highRisk }
 
-class _ScanResult {
+class _Result {
   final int score;
   final String decision;
-  final List<_Factor> factors;
   final double amount;
-  _ScanResult({required this.score, required this.decision, required this.factors, required this.amount});
-}
-
-class _Factor {
-  final String icon, text;
-  final Color color;
-  final double weight;
-  _Factor(this.icon, this.text, this.color, {this.weight = 0});
+  final List<({String icon, String text, Color color, double weight})> factors;
+  _Result({required this.score, required this.decision, required this.amount, required this.factors});
 }
 
 class AnalyzeScreen extends StatefulWidget {
@@ -29,366 +22,267 @@ class AnalyzeScreen extends StatefulWidget {
 }
 
 class _AnalyzeScreenState extends State<AnalyzeScreen> with SingleTickerProviderStateMixin {
-  final _amountCtrl = TextEditingController(text: '150');
-  _DeviceType _device = _DeviceType.known;
-  _LocationType _location = _LocationType.home;
-  _TimeType _time = _TimeType.business;
-  _MerchantType _merchant = _MerchantType.regular;
+  final _amtCtrl = TextEditingController(text: '150');
+  _Device   _device   = _Device.known;
+  _Location _location = _Location.home;
+  _Time     _time     = _Time.business;
+  _Merchant _merchant = _Merchant.regular;
+  _Result? _result;
+  bool _loading = false;
+  final _history = <_Result>[];
+  late TabController _tab;
 
-  _ScanResult? _result;
-  bool _isAnalyzing = false;
-  final List<_ScanResult> _history = [];
-
-  late TabController _tabCtrl;
-
-  @override
-  void initState() { super.initState(); _tabCtrl = TabController(length: 2, vsync: this); }
-  @override
-  void dispose() { _tabCtrl.dispose(); _amountCtrl.dispose(); super.dispose(); }
+  @override void initState() { super.initState(); _tab = TabController(length: 2, vsync: this); }
+  @override void dispose()   { _tab.dispose(); _amtCtrl.dispose(); super.dispose(); }
 
   Future<void> _analyze() async {
-    final amount = double.tryParse(_amountCtrl.text) ?? 150;
-    setState(() { _isAnalyzing = true; _result = null; });
-    await Future.delayed(const Duration(milliseconds: 800));
+    final amt = double.tryParse(_amtCtrl.text) ?? 150;
+    setState(() { _loading = true; _result = null; });
+    await Future.delayed(const Duration(milliseconds: 700));
 
     int score = 5;
-    final factors = <_Factor>[];
+    final factors = <({String icon, String text, Color color, double weight})>[];
 
-    // Amount scoring
-    double amtWeight = 0;
-    if (amount > 3000)      { score += 45; amtWeight = 0.95; factors.add(_Factor('💰', 'Amount is ${(amount/52).toStringAsFixed(0)}× your average — extreme anomaly', AppColors.danger, weight: amtWeight)); }
-    else if (amount > 1000) { score += 28; amtWeight = 0.70; factors.add(_Factor('💰', 'Amount is ${(amount/52).toStringAsFixed(0)}× above your average spend', AppColors.danger, weight: amtWeight)); }
-    else if (amount > 300)  { score += 14; amtWeight = 0.40; factors.add(_Factor('⚠', 'Transaction moderately above baseline', AppColors.warn, weight: amtWeight)); }
-    else { amtWeight = 0.10; factors.add(_Factor('✓', 'Amount is within normal spending range', AppColors.safe, weight: amtWeight)); }
+    if      (amt > 3000) { score += 45; factors.add((icon:'💰', text:'Amount is ${(amt/52).toStringAsFixed(0)}× your average — extreme anomaly', color:AppColors.danger, weight:0.95)); }
+    else if (amt > 1000) { score += 28; factors.add((icon:'💰', text:'Amount is ${(amt/52).toStringAsFixed(0)}× above your average spend of RM 52', color:AppColors.danger, weight:0.70)); }
+    else if (amt > 300)  { score += 14; factors.add((icon:'⚠',  text:'Transaction is moderately above your daily baseline', color:AppColors.warn, weight:0.40)); }
+    else                 {              factors.add((icon:'✓',  text:'Amount is within your normal spending range', color:AppColors.safe, weight:0.10)); }
 
-    // Device scoring
-    double devWeight = 0;
     switch (_device) {
-      case _DeviceType.suspicious: score += 38; devWeight = 0.90; factors.add(_Factor('📵', 'Device is flagged in fraud database', AppColors.danger, weight: devWeight));
-      case _DeviceType.newDevice:  score += 20; devWeight = 0.55; factors.add(_Factor('📱', 'Unrecognized device — first time seen', AppColors.warn, weight: devWeight));
-      case _DeviceType.known: devWeight = 0.05; factors.add(_Factor('✓', 'Known and verified device', AppColors.safe, weight: devWeight));
+      case _Device.suspicious: score += 38; factors.add((icon:'📵', text:'Device is flagged in the fraud database', color:AppColors.danger, weight:0.90));
+      case _Device.newDevice:  score += 20; factors.add((icon:'📱', text:'Unrecognized device — first seen today', color:AppColors.warn, weight:0.55));
+      case _Device.known:                   factors.add((icon:'✓',  text:'Known and verified device', color:AppColors.safe, weight:0.05));
     }
-
-    // Location scoring
-    double locWeight = 0;
     switch (_location) {
-      case _LocationType.vpn:     score += 32; locWeight = 0.92; factors.add(_Factor('🌐', 'VPN / proxy detected — identity masking', AppColors.danger, weight: locWeight));
-      case _LocationType.foreign: score += 24; locWeight = 0.75; factors.add(_Factor('🗺', 'Geographic anomaly: IP outside wallet region', AppColors.danger, weight: locWeight));
-      case _LocationType.nearby:  score += 9;  locWeight = 0.30; factors.add(_Factor('📍', 'Nearby region — minor geographic deviation', AppColors.warn, weight: locWeight));
-      case _LocationType.home:    locWeight = 0.05; factors.add(_Factor('✓', 'Location matches your home region', AppColors.safe, weight: locWeight));
+      case _Location.vpn:     score += 32; factors.add((icon:'🌐', text:'VPN or proxy detected — possible identity masking', color:AppColors.danger, weight:0.92));
+      case _Location.foreign: score += 24; factors.add((icon:'🗺',  text:'Geographic anomaly: IP is outside your wallet region', color:AppColors.danger, weight:0.75));
+      case _Location.nearby:  score += 9;  factors.add((icon:'📍', text:'Nearby region — minor geographic deviation', color:AppColors.warn, weight:0.30));
+      case _Location.home:                 factors.add((icon:'✓',  text:'Location matches your registered home region', color:AppColors.safe, weight:0.05));
     }
-
-    // Time scoring
-    double timeWeight = 0;
     switch (_time) {
-      case _TimeType.lateNight: score += 18; timeWeight = 0.65; factors.add(_Factor('🌙', 'Late-night activity (12AM–5AM) — high-risk window', AppColors.danger, weight: timeWeight));
-      case _TimeType.evening:   score += 5;  timeWeight = 0.20; factors.add(_Factor('🌆', 'Evening transaction — slightly elevated risk', AppColors.warn, weight: timeWeight));
-      case _TimeType.business:  timeWeight = 0.05; factors.add(_Factor('✓', 'Business hours — normal activity window', AppColors.safe, weight: timeWeight));
+      case _Time.lateNight: score += 18; factors.add((icon:'🌙', text:'Late-night transaction (12AM–5AM) — high-risk window', color:AppColors.danger, weight:0.65));
+      case _Time.evening:   score += 5;  factors.add((icon:'🌆', text:'Evening transaction — slightly elevated risk', color:AppColors.warn, weight:0.20));
+      case _Time.business:               factors.add((icon:'✓',  text:'Business hours — within your normal activity window', color:AppColors.safe, weight:0.05));
     }
-
-    // Merchant scoring
-    double merWeight = 0;
     switch (_merchant) {
-      case _MerchantType.highRisk:   score += 20; merWeight = 0.70; factors.add(_Factor('🏪', 'High-risk merchant category detected', AppColors.danger, weight: merWeight));
-      case _MerchantType.newMerchant: score += 8; merWeight = 0.30; factors.add(_Factor('🏬', 'First transaction with this merchant', AppColors.warn, weight: merWeight));
-      case _MerchantType.regular:    merWeight = 0.05; factors.add(_Factor('✓', 'Regular, trusted merchant', AppColors.safe, weight: merWeight));
+      case _Merchant.highRisk:    score += 20; factors.add((icon:'🏪', text:'High-risk merchant category detected', color:AppColors.danger, weight:0.70));
+      case _Merchant.newMerchant: score += 8;  factors.add((icon:'🏬', text:'First transaction with this merchant', color:AppColors.warn, weight:0.30));
+      case _Merchant.regular:                  factors.add((icon:'✓',  text:'Regular, trusted merchant', color:AppColors.safe, weight:0.05));
     }
 
     score = score.clamp(2, 99);
-
-    final decision = score >= 70 ? '⛔  BLOCKED' : score >= 35 ? '⚑  FLAGGED' : '✓  APPROVED';
-
-    final res = _ScanResult(score: score, decision: decision, factors: factors, amount: amount);
-    setState(() {
-      _result = res;
-      _isAnalyzing = false;
-      _history.insert(0, res);
-      if (_history.length > 10) _history.removeLast();
-    });
+    final res = _Result(
+      score: score,
+      decision: score >= 70 ? '✕  BLOCKED' : score >= 35 ? '⚑  FLAGGED' : '✓  APPROVED',
+      amount: amt, factors: factors,
+    );
+    setState(() { _result = res; _loading = false; _history.insert(0, res); if (_history.length > 10) _history.removeLast(); });
   }
 
-  Color get _color {
-    final s = _result?.score ?? 0;
-    if (s >= 70) return AppColors.danger;
-    if (s >= 35) return AppColors.warn;
-    return AppColors.safe;
-  }
+  Color get _rc { final s = _result?.score ?? 0; return s >= 70 ? AppColors.danger : s >= 35 ? AppColors.warn : AppColors.safe; }
 
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      // Tab bar header
       Container(
         color: AppColors.card,
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Analyze Transaction', style: AppText.display(22)),
-          const SizedBox(height: 4),
-          Text('Real-time AI fraud risk scoring', style: AppText.body(13, color: AppColors.ink3)),
-          const SizedBox(height: 12),
+          Text('Analyze Transaction', style: AppText.h1(22)),
+          const SizedBox(height: 2),
+          Text('Real-time AI fraud risk scoring', style: AppText.label(13)),
+          const SizedBox(height: 14),
           TabBar(
-            controller: _tabCtrl,
-            labelStyle: AppText.body(13, weight: FontWeight.w600),
-            unselectedLabelStyle: AppText.body(13),
+            controller: _tab,
+            labelStyle: AppText.label(13, weight: FontWeight.w700),
+            unselectedLabelStyle: AppText.label(13),
             labelColor: AppColors.accent,
             unselectedLabelColor: AppColors.ink3,
             indicatorColor: AppColors.accent,
-            indicatorWeight: 2.5,
-            tabs: [
-              const Tab(text: '🔍  New Scan'),
-              Tab(text: '📋  History (${_history.length})'),
-            ],
+            indicatorWeight: 2,
+            tabs: [const Tab(text: 'New Scan'), Tab(text: 'History (${_history.length})')],
           ),
         ]),
       ),
-
-      Expanded(child: TabBarView(
-        controller: _tabCtrl,
-        children: [
-          // Scan tab
-          SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
-              _InputCard(
-                amountCtrl: _amountCtrl,
-                device: _device, location: _location,
-                time: _time, merchant: _merchant,
-                onDevice: (v) => setState(() => _device = v),
-                onLocation: (v) => setState(() => _location = v),
-                onTime: (v) => setState(() => _time = v),
-                onMerchant: (v) => setState(() => _merchant = v),
-                isAnalyzing: _isAnalyzing,
-                onAnalyze: _analyze,
-              ),
-              if (_result != null) ...[
-                const SizedBox(height: 16),
-                _ResultCard(result: _result!, color: _color),
-              ],
-              const SizedBox(height: 32),
-            ]),
-          ),
-
-          // History tab
-          _history.isEmpty
-            ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Text('📋', style: TextStyle(fontSize: 40)),
-                const SizedBox(height: 12),
-                Text('No scans yet', style: AppText.body(14, color: AppColors.ink3)),
-                const SizedBox(height: 4),
-                Text('Run a scan to see history', style: AppText.body(12, color: AppColors.ink3)),
-              ]))
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                physics: const BouncingScrollPhysics(),
-                itemCount: _history.length,
-                itemBuilder: (_, i) => _HistoryCard(result: _history[i], index: i),
-              ),
-        ],
-      )),
+      Expanded(child: TabBarView(controller: _tab, children: [
+        // Scan tab
+        SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            _InputCard(amtCtrl: _amtCtrl, device: _device, location: _location,
+              time: _time, merchant: _merchant,
+              onDevice: (v) => setState(() => _device = v),
+              onLocation: (v) => setState(() => _location = v),
+              onTime: (v) => setState(() => _time = v),
+              onMerchant: (v) => setState(() => _merchant = v),
+              loading: _loading, onAnalyze: _analyze),
+            if (_result != null) ...[const SizedBox(height: 16), _ResultCard(result: _result!, color: _rc)],
+            const SizedBox(height: 32),
+          ]),
+        ),
+        // History tab
+        _history.isEmpty
+          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.history_rounded, size: 48, color: AppColors.ink4),
+              const SizedBox(height: 12),
+              Text('No scans yet', style: AppText.h2(16, color: AppColors.ink3)),
+              const SizedBox(height: 4),
+              Text('Run a scan to see history here', style: AppText.label(13)),
+            ]))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16), physics: const BouncingScrollPhysics(),
+              itemCount: _history.length,
+              itemBuilder: (_, i) => _HistoryCard(result: _history[i], index: i)),
+      ])),
     ]);
   }
 }
 
-// ── Input Card ──────────────────────────────────────
 class _InputCard extends StatelessWidget {
-  final TextEditingController amountCtrl;
-  final _DeviceType device;
-  final _LocationType location;
-  final _TimeType time;
-  final _MerchantType merchant;
-  final ValueChanged<_DeviceType> onDevice;
-  final ValueChanged<_LocationType> onLocation;
-  final ValueChanged<_TimeType> onTime;
-  final ValueChanged<_MerchantType> onMerchant;
-  final bool isAnalyzing;
-  final VoidCallback onAnalyze;
+  final TextEditingController amtCtrl;
+  final _Device device; final _Location location;
+  final _Time time; final _Merchant merchant;
+  final ValueChanged<_Device> onDevice;
+  final ValueChanged<_Location> onLocation;
+  final ValueChanged<_Time> onTime;
+  final ValueChanged<_Merchant> onMerchant;
+  final bool loading; final VoidCallback onAnalyze;
+  const _InputCard({required this.amtCtrl, required this.device, required this.location,
+    required this.time, required this.merchant, required this.onDevice, required this.onLocation,
+    required this.onTime, required this.onMerchant, required this.loading, required this.onAnalyze});
 
-  const _InputCard({
-    required this.amountCtrl, required this.device, required this.location,
-    required this.time, required this.merchant,
-    required this.onDevice, required this.onLocation,
-    required this.onTime, required this.onMerchant,
-    required this.isAnalyzing, required this.onAnalyze,
-  });
+  Widget _lbl(String t) => Padding(padding: const EdgeInsets.only(bottom: 6),
+    child: Text(t, style: AppText.label(11, weight: FontWeight.w600)));
 
   InputDecoration _dec(String? hint) => InputDecoration(
-    hintText: hint,
-    hintStyle: AppText.body(14, color: AppColors.ink3),
+    hintText: hint, hintStyle: AppText.label(14),
     filled: true, fillColor: AppColors.card2,
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-    isDense: true,
-  );
-
-  Widget _label(String t) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(t.toUpperCase(), style: AppText.mono(9, color: AppColors.ink3).copyWith(letterSpacing: 1)),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13), isDense: true,
   );
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      radius: 16,
-      padding: const EdgeInsets.all(18),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _label('Transaction Amount (MYR)'),
-        TextField(controller: amountCtrl, keyboardType: TextInputType.number,
-          style: AppText.body(15), decoration: _dec('e.g. 150.00')),
-        const SizedBox(height: 14),
-
-        Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _label('Device'),
-            DropdownButtonFormField<_DeviceType>(
-              value: device, decoration: _dec(null), style: AppText.body(13, color: AppColors.ink),
-              items: const [
-                DropdownMenuItem(value: _DeviceType.known, child: Text('Known Device')),
-                DropdownMenuItem(value: _DeviceType.newDevice, child: Text('New Device')),
-                DropdownMenuItem(value: _DeviceType.suspicious, child: Text('Suspicious')),
-              ],
-              onChanged: (v) => v != null ? onDevice(v) : null,
-            ),
-          ])),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _label('Location'),
-            DropdownButtonFormField<_LocationType>(
-              value: location, decoration: _dec(null), style: AppText.body(13, color: AppColors.ink),
-              items: const [
-                DropdownMenuItem(value: _LocationType.home, child: Text('Home (MY)')),
-                DropdownMenuItem(value: _LocationType.nearby, child: Text('Nearby (SG)')),
-                DropdownMenuItem(value: _LocationType.foreign, child: Text('Foreign')),
-                DropdownMenuItem(value: _LocationType.vpn, child: Text('VPN')),
-              ],
-              onChanged: (v) => v != null ? onLocation(v) : null,
-            ),
-          ])),
-        ]),
-        const SizedBox(height: 14),
-
-        Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _label('Time of Day'),
-            DropdownButtonFormField<_TimeType>(
-              value: time, decoration: _dec(null), style: AppText.body(13, color: AppColors.ink),
-              items: const [
-                DropdownMenuItem(value: _TimeType.business, child: Text('Business Hrs')),
-                DropdownMenuItem(value: _TimeType.evening, child: Text('Evening')),
-                DropdownMenuItem(value: _TimeType.lateNight, child: Text('Late Night')),
-              ],
-              onChanged: (v) => v != null ? onTime(v) : null,
-            ),
-          ])),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _label('Merchant Type'),
-            DropdownButtonFormField<_MerchantType>(
-              value: merchant, decoration: _dec(null), style: AppText.body(13, color: AppColors.ink),
-              items: const [
-                DropdownMenuItem(value: _MerchantType.regular, child: Text('Regular')),
-                DropdownMenuItem(value: _MerchantType.newMerchant, child: Text('New Merchant')),
-                DropdownMenuItem(value: _MerchantType.highRisk, child: Text('High Risk')),
-              ],
-              onChanged: (v) => v != null ? onMerchant(v) : null,
-            ),
-          ])),
-        ]),
-        const SizedBox(height: 18),
-
-        GradientButton(
-          label: 'Analyze Now',
-          emoji: '🔍',
-          loading: isAnalyzing,
-          onTap: onAnalyze,
-        ),
+    return AppCard(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _lbl('Transaction Amount (MYR)'),
+      TextField(controller: amtCtrl, keyboardType: TextInputType.number,
+        style: AppText.body(15, color: AppColors.ink), decoration: _dec('e.g. 150.00')),
+      const SizedBox(height: 14),
+      Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _lbl('Device'),
+          DropdownButtonFormField<_Device>(value: device, decoration: _dec(null),
+            style: AppText.body(13, color: AppColors.ink),
+            items: const [
+              DropdownMenuItem(value: _Device.known, child: Text('Known Device')),
+              DropdownMenuItem(value: _Device.newDevice, child: Text('New Device')),
+              DropdownMenuItem(value: _Device.suspicious, child: Text('Suspicious')),
+            ], onChanged: (v) => v != null ? onDevice(v) : null),
+        ])),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _lbl('Location'),
+          DropdownButtonFormField<_Location>(value: location, decoration: _dec(null),
+            style: AppText.body(13, color: AppColors.ink),
+            items: const [
+              DropdownMenuItem(value: _Location.home, child: Text('Home (MY)')),
+              DropdownMenuItem(value: _Location.nearby, child: Text('Nearby (SG)')),
+              DropdownMenuItem(value: _Location.foreign, child: Text('Foreign')),
+              DropdownMenuItem(value: _Location.vpn, child: Text('VPN')),
+            ], onChanged: (v) => v != null ? onLocation(v) : null),
+        ])),
       ]),
-    );
+      const SizedBox(height: 14),
+      Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _lbl('Time of Day'),
+          DropdownButtonFormField<_Time>(value: time, decoration: _dec(null),
+            style: AppText.body(13, color: AppColors.ink),
+            items: const [
+              DropdownMenuItem(value: _Time.business, child: Text('Business Hrs')),
+              DropdownMenuItem(value: _Time.evening, child: Text('Evening')),
+              DropdownMenuItem(value: _Time.lateNight, child: Text('Late Night')),
+            ], onChanged: (v) => v != null ? onTime(v) : null),
+        ])),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _lbl('Merchant Type'),
+          DropdownButtonFormField<_Merchant>(value: merchant, decoration: _dec(null),
+            style: AppText.body(13, color: AppColors.ink),
+            items: const [
+              DropdownMenuItem(value: _Merchant.regular, child: Text('Regular')),
+              DropdownMenuItem(value: _Merchant.newMerchant, child: Text('New Merchant')),
+              DropdownMenuItem(value: _Merchant.highRisk, child: Text('High Risk')),
+            ], onChanged: (v) => v != null ? onMerchant(v) : null),
+        ])),
+      ]),
+      const SizedBox(height: 18),
+      GradientButton(label: 'Analyze Now', emoji: '🔍', loading: loading, onTap: onAnalyze),
+    ]));
   }
 }
 
-// ── Result Card ─────────────────────────────────────
 class _ResultCard extends StatelessWidget {
-  final _ScanResult result;
-  final Color color;
+  final _Result result; final Color color;
   const _ResultCard({required this.result, required this.color});
 
-  Color get _bg {
-    if (result.score >= 70) return AppColors.dangerLight;
-    if (result.score >= 35) return AppColors.warnLight;
-    return AppColors.safeLight;
-  }
+  Color get _bg => color == AppColors.danger ? AppColors.dangerLight
+    : color == AppColors.warn ? AppColors.warnLight : AppColors.safeLight;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: _bg,
-        border: Border.all(color: color.withOpacity(0.3)),
-        borderRadius: BorderRadius.circular(16),
-      ),
       padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _bg, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
       child: Column(children: [
-        // Score row
         Row(children: [
-          SizedBox(width: 72, height: 72,
-            child: Stack(alignment: Alignment.center, children: [
-              SizedBox(width: 72, height: 72,
-                child: CircularProgressIndicator(
-                  value: result.score / 100,
-                  backgroundColor: Colors.black.withOpacity(0.08),
-                  color: color, strokeWidth: 6, strokeCap: StrokeCap.round,
-                )),
-              Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text('${result.score}%', style: AppText.mono(15, color: color, weight: FontWeight.w700)),
-                Text('risk', style: AppText.body(9, color: color.withOpacity(0.7))),
-              ]),
-            ])),
+          SizedBox(width: 68, height: 68, child: Stack(alignment: Alignment.center, children: [
+            SizedBox(width: 68, height: 68, child: CircularProgressIndicator(
+              value: result.score / 100, backgroundColor: color.withOpacity(0.12),
+              color: color, strokeWidth: 6, strokeCap: StrokeCap.round)),
+            Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text('${result.score}%', style: AppText.mono(14, color: color)),
+              Text('risk', style: AppText.label(9, color: color.withOpacity(0.7))),
+            ]),
+          ])),
           const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(result.decision, style: AppText.display(20, color: color)),
+            Text(result.decision, style: AppText.h2(20, color: color)),
             const SizedBox(height: 4),
             Text('RM ${result.amount.toStringAsFixed(2)}',
-              style: AppText.mono(14, color: AppColors.ink2, weight: FontWeight.w500)),
+              style: AppText.mono(14, color: AppColors.ink2)),
             const SizedBox(height: 6),
             Text(result.score >= 70 ? 'Transaction automatically blocked by AI'
               : result.score >= 35 ? 'Flagged for manual review'
-              : 'Cleared — safe to proceed',
-              style: AppText.body(11, color: AppColors.ink2)),
+              : 'Transaction cleared — safe to proceed',
+              style: AppText.body(11)),
           ])),
         ]),
-
         const SizedBox(height: 14),
         const Divider(color: Color(0x18000000), height: 1),
         const SizedBox(height: 12),
-
-        // Factor weight bars
-        Text('Factor Breakdown', style: AppText.display(13)),
+        Text('Factor Breakdown', style: AppText.h2(13)),
         const SizedBox(height: 10),
         ...result.factors.map((f) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Container(
-                width: 6, height: 6,
-                decoration: BoxDecoration(color: f.color, shape: BoxShape.circle),
-              ),
+              Container(width: 6, height: 6, decoration: BoxDecoration(color: f.color, shape: BoxShape.circle)),
               const SizedBox(width: 8),
-              Expanded(child: Text(f.text, style: AppText.body(12, color: AppColors.ink2))),
-              Text('${(f.weight * 100).toInt()}%', style: AppText.mono(10, color: f.color, weight: FontWeight.w600)),
+              Expanded(child: Text(f.text, style: AppText.body(12))),
+              Text('${(f.weight * 100).toInt()}%',
+                style: AppText.mono(10, color: f.color)),
             ]),
             const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: f.weight,
-                backgroundColor: Colors.black.withOpacity(0.08),
-                color: f.color,
-                minHeight: 4,
-              ),
-            ),
+            ClipRRect(borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(value: f.weight,
+                backgroundColor: color.withOpacity(0.08), color: f.color, minHeight: 4)),
           ]),
         )),
       ]),
@@ -396,50 +290,31 @@ class _ResultCard extends StatelessWidget {
   }
 }
 
-// ── History Card ────────────────────────────────────
 class _HistoryCard extends StatelessWidget {
-  final _ScanResult result;
-  final int index;
+  final _Result result; final int index;
   const _HistoryCard({required this.result, required this.index});
-
-  Color get _color {
-    if (result.score >= 70) return AppColors.danger;
-    if (result.score >= 35) return AppColors.warn;
-    return AppColors.safe;
-  }
+  Color get _c => result.score >= 70 ? AppColors.danger : result.score >= 35 ? AppColors.warn : AppColors.safe;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: AppCard(
-        padding: const EdgeInsets.all(14),
-        child: Row(children: [
-          SizedBox(width: 48, height: 48,
-            child: Stack(alignment: Alignment.center, children: [
-              CircularProgressIndicator(
-                value: result.score / 100,
-                backgroundColor: AppColors.border,
-                color: _color, strokeWidth: 4,
-              ),
-              Text('${result.score}%', style: AppText.mono(10, color: _color, weight: FontWeight.w700)),
-            ])),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(result.decision, style: AppText.body(14, weight: FontWeight.w700, color: _color)),
-            Text('RM ${result.amount.toStringAsFixed(2)} · Scan #${index + 1}',
-              style: AppText.mono(11, color: AppColors.ink3)),
-          ])),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: _color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text('${result.score}/100', style: AppText.mono(11, color: _color, weight: FontWeight.w600)),
-          ),
-        ]),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: AppCard(padding: const EdgeInsets.all(14), child: Row(children: [
+      SizedBox(width: 48, height: 48, child: Stack(alignment: Alignment.center, children: [
+        CircularProgressIndicator(value: result.score / 100,
+          backgroundColor: AppColors.card3, color: _c, strokeWidth: 4),
+        Text('${result.score}%', style: AppText.mono(10, color: _c)),
+      ])),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(result.decision, style: AppText.body(14, color: _c, weight: FontWeight.w700)),
+        Text('RM ${result.amount.toStringAsFixed(2)} · Scan #${index + 1}',
+          style: AppText.label(11)),
+      ])),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: _c.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+        child: Text('${result.score}/100', style: AppText.mono(11, color: _c)),
       ),
-    );
-  }
+    ])),
+  );
 }
