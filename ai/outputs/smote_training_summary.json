@@ -1,0 +1,31 @@
+{
+    "raw_shape": [
+        200000,
+        11
+    ],
+    "processed_shape": [
+        200000,
+        47
+    ],
+    "feature_shape": [
+        200000,
+        45
+    ],
+    "train_shape": [
+        160000,
+        45
+    ],
+    "test_shape": [
+        40000,
+        45
+    ],
+    "train_distribution_before_smote": {
+        "0": 159882,
+        "1": 118
+    },
+    "train_distribution_after_smote": {
+        "0": 159882,
+        "1": 159882
+    },
+    "smote_applied_only_to_training_set": true
+}

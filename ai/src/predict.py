@@ -1,20 +1,54 @@
-import joblib
-import pandas as pd
+import json
 from pathlib import Path
+from typing import Dict, Any, List
 
-# -----------------------------
-# Load trained models
-# -----------------------------
-models_dir = Path("models")
+import joblib
+import numpy as np
+import pandas as pd
 
-xgb_model = joblib.load(models_dir / "fraud_paysim_xgboost_features.pkl")
-iso_model = joblib.load(models_dir / "fraud_isolation_forest.pkl")
+from src.load_dataset import preprocess_data
+
+# -------------------------------------------------------------------
+# Configuration
+# -------------------------------------------------------------------
+MODELS_DIR = Path("models")
+OUTPUTS_DIR = Path("outputs")
+
+CLASSIFIER_PATH = MODELS_DIR / "fraud_paysim_xgboost.pkl"
+ANOMALY_MODEL_PATH = MODELS_DIR / "fraud_isolation_forest.pkl"
+
+VALID_TRANSACTION_TYPES = {"CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER"}
 
 
-# -----------------------------
-# Validation function
-# -----------------------------
-def validate_transaction(transaction: dict) -> None:
+# -------------------------------------------------------------------
+# Model loading
+# -------------------------------------------------------------------
+def load_models():
+    """
+    Load trained classifier and anomaly detector.
+    """
+    if not CLASSIFIER_PATH.exists():
+        raise FileNotFoundError(f"Classifier model not found: {CLASSIFIER_PATH}")
+
+    if not ANOMALY_MODEL_PATH.exists():
+        raise FileNotFoundError(f"Anomaly model not found: {ANOMALY_MODEL_PATH}")
+
+    classifier_model = joblib.load(CLASSIFIER_PATH)
+    anomaly_model = joblib.load(ANOMALY_MODEL_PATH)
+
+    return classifier_model, anomaly_model
+
+
+classifier_model, anomaly_model = load_models()
+
+
+# -------------------------------------------------------------------
+# Validation
+# -------------------------------------------------------------------
+def validate_transaction(transaction: Dict[str, Any]) -> None:
+    """
+    Validate incoming transaction payload.
+    """
     required_fields = [
         "step",
         "type",
@@ -23,15 +57,22 @@ def validate_transaction(transaction: dict) -> None:
         "newbalanceOrig",
         "oldbalanceDest",
         "newbalanceDest",
-        "isFlaggedFraud"
+        "isFlaggedFraud",
     ]
 
-    for field in required_fields:
-        if field not in transaction:
-            raise ValueError(f"Missing required field: {field}")
+    missing_fields = [field for field in required_fields if field not in transaction]
+    if missing_fields:
+        raise ValueError(f"Missing required fields: {missing_fields}")
 
     if not isinstance(transaction["type"], str):
-        raise ValueError("Transaction type must be a string")
+        raise ValueError("Transaction type must be a string.")
+
+    tx_type = transaction["type"].strip().upper()
+    if tx_type not in VALID_TRANSACTION_TYPES:
+        raise ValueError(
+            f"Invalid transaction type: {transaction['type']}. "
+            f"Valid types: {sorted(VALID_TRANSACTION_TYPES)}"
+        )
 
     numeric_fields = [
         "step",
@@ -40,175 +81,277 @@ def validate_transaction(transaction: dict) -> None:
         "newbalanceOrig",
         "oldbalanceDest",
         "newbalanceDest",
-        "isFlaggedFraud"
+        "isFlaggedFraud",
     ]
 
     for field in numeric_fields:
         if not isinstance(transaction[field], (int, float)):
-            raise ValueError(f"{field} must be numeric")
+            raise ValueError(f"{field} must be numeric.")
 
     if transaction["step"] < 0:
-        raise ValueError("step cannot be negative")
-
+        raise ValueError("step cannot be negative.")
     if transaction["amount"] < 0:
-        raise ValueError("amount cannot be negative")
-
+        raise ValueError("amount cannot be negative.")
     if transaction["oldbalanceOrg"] < 0 or transaction["newbalanceOrig"] < 0:
-        raise ValueError("origin balances cannot be negative")
-
+        raise ValueError("origin balances cannot be negative.")
     if transaction["oldbalanceDest"] < 0 or transaction["newbalanceDest"] < 0:
-        raise ValueError("destination balances cannot be negative")
-
-    valid_types = {"CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER"}
-    if transaction["type"] not in valid_types:
-        raise ValueError(f"Invalid transaction type: {transaction['type']}")
-
+        raise ValueError("destination balances cannot be negative.")
     if transaction["isFlaggedFraud"] not in [0, 1]:
-        raise ValueError("isFlaggedFraud must be 0 or 1")
+        raise ValueError("isFlaggedFraud must be 0 or 1.")
 
 
-# -----------------------------
-# Preprocessing function
-# -----------------------------
-def preprocess_transaction(transaction: dict) -> pd.DataFrame:
-    df = pd.DataFrame([transaction])
+# -------------------------------------------------------------------
+# Preprocessing
+# -------------------------------------------------------------------
+def build_raw_transaction_df(transaction: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Build a one-row raw dataframe with all expected raw columns.
+    """
+    tx = transaction.copy()
+    tx["type"] = tx["type"].strip().upper()
 
-    # Feature engineering
-    df["balance_diff_orig"] = df["oldbalanceOrg"] - df["newbalanceOrig"]
-    df["balance_diff_dest"] = df["newbalanceDest"] - df["oldbalanceDest"]
-    df["amount_balance_ratio"] = df["amount"] / (df["oldbalanceOrg"] + 1)
-    df["is_large_amount"] = (df["amount"] > 200000).astype(int)
-    df["is_zero_oldbalanceDest"] = (df["oldbalanceDest"] == 0).astype(int)
-    df["is_zero_newbalanceDest"] = (df["newbalanceDest"] == 0).astype(int)
+    # Optional fields for compatibility with preprocessing pipeline
+    tx.setdefault("nameOrig", "C_UNKNOWN_ORIG")
+    tx.setdefault("nameDest", "C_UNKNOWN_DEST")
 
-    # Manual transaction type encoding
-    tx_type = df["type"].iloc[0]
-    df["type_CASH_OUT"] = 1 if tx_type == "CASH_OUT" else 0
-    df["type_DEBIT"] = 1 if tx_type == "DEBIT" else 0
-    df["type_PAYMENT"] = 1 if tx_type == "PAYMENT" else 0
-    df["type_TRANSFER"] = 1 if tx_type == "TRANSFER" else 0
+    df = pd.DataFrame([tx])
 
-    # Drop raw non-model columns
-    for col in ["nameOrig", "nameDest", "type", "isFlaggedFraud"]:
-        if col in df.columns:
-            df = df.drop(columns=[col])
-
-    # Must match training exactly
-    expected_columns = [
+    # Ensure raw schema compatibility
+    expected_raw_columns = [
         "step",
+        "type",
         "amount",
+        "nameOrig",
         "oldbalanceOrg",
         "newbalanceOrig",
+        "nameDest",
         "oldbalanceDest",
         "newbalanceDest",
-        "balance_diff_orig",
-        "balance_diff_dest",
-        "amount_balance_ratio",
-        "is_large_amount",
-        "is_zero_oldbalanceDest",
-        "is_zero_newbalanceDest",
-        "type_CASH_OUT",
-        "type_DEBIT",
-        "type_PAYMENT",
-        "type_TRANSFER"
+        "isFlaggedFraud",
     ]
 
-    for col in expected_columns:
+    for col in expected_raw_columns:
         if col not in df.columns:
-            df[col] = 0
+            if col == "type":
+                df[col] = "PAYMENT"
+            elif col in ["nameOrig", "nameDest"]:
+                df[col] = "UNKNOWN"
+            else:
+                df[col] = 0
 
-    df = df[expected_columns]
-    return df
+    return df[expected_raw_columns]
 
 
-# -----------------------------
-# Prediction function
-# -----------------------------
-def predict_transaction(transaction: dict) -> dict:
-    validate_transaction(transaction)
-    processed = preprocess_transaction(transaction)
+def preprocess_transaction(transaction: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Preprocess a single transaction using the same shared preprocessing
+    logic as training.
+    """
+    raw_df = build_raw_transaction_df(transaction)
 
-    # Safety check for feature alignment
-    if hasattr(xgb_model, "feature_names_in_"):
-        expected = list(xgb_model.feature_names_in_)
-        actual = list(processed.columns)
-        if actual != expected:
-            raise ValueError(f"Feature mismatch. Expected {expected}, got {actual}")
+    # Add dummy isFraud column because shared preprocessing pipeline expects
+    # training-like schema. It will be dropped later before prediction.
+    raw_df["isFraud"] = 0
 
-    # XGBoost fraud probability
-    fraud_probability = float(xgb_model.predict_proba(processed)[0][1])
+    processed_df = preprocess_data(raw_df)
 
-    # Isolation Forest: -1 = anomaly, 1 = normal
-    anomaly_prediction = int(iso_model.predict(processed)[0])
-    anomaly_raw_score = float(iso_model.decision_function(processed)[0])
+    # Drop target columns for inference
+    cols_to_drop = [col for col in ["isFraud", "isFlaggedFraud"] if col in processed_df.columns]
+    processed_df = processed_df.drop(columns=cols_to_drop)
 
-    # Base risk score from classifier
-    risk_score = int(fraud_probability * 100)
+    # Defensive conversion
+    bool_cols = processed_df.select_dtypes(include=["bool"]).columns.tolist()
+    if bool_cols:
+        processed_df[bool_cols] = processed_df[bool_cols].astype(int)
 
-    # Secondary anomaly adjustment
-    if anomaly_prediction == -1:
-        risk_score = max(risk_score, 55)
-    elif anomaly_raw_score < 0.02:
-        risk_score = max(risk_score, 45)
+    return processed_df
 
-    # Reasons
+
+def align_features_for_model(processed_df: pd.DataFrame, model) -> pd.DataFrame:
+    """
+    Align dataframe columns to exactly match model training features.
+    """
+    if not hasattr(model, "feature_names_in_"):
+        return processed_df
+
+    expected_features = list(model.feature_names_in_)
+    aligned_df = processed_df.copy()
+
+    for col in expected_features:
+        if col not in aligned_df.columns:
+            aligned_df[col] = 0
+
+    aligned_df = aligned_df[expected_features]
+
+    return aligned_df
+
+
+# -------------------------------------------------------------------
+# Scoring helpers
+# -------------------------------------------------------------------
+def normalize_anomaly_risk(anomaly_score: float, reference_min: float = -0.06, reference_max: float = 0.29) -> float:
+    """
+    Convert raw Isolation Forest decision_function score to a rough
+    0-100 anomaly intensity scale.
+    Lower raw score => higher anomaly risk.
+    """
+    clipped = min(max(anomaly_score, reference_min), reference_max)
+    normalized = (reference_max - clipped) / (reference_max - reference_min)
+    return round(normalized * 100, 2)
+
+
+def derive_reasons(
+    transaction: Dict[str, Any],
+    fraud_probability: float,
+    anomaly_prediction: int,
+    anomaly_score: float,
+) -> List[str]:
+    """
+    Build human-readable reasons for risk decision.
+    """
     reasons = []
 
     if fraud_probability >= 0.95:
-        reasons.append("Very high fraud probability from classifier")
+        reasons.append("Very high fraud probability from supervised classifier")
     elif fraud_probability >= 0.70:
-        reasons.append("High fraud probability from classifier")
+        reasons.append("High fraud probability from supervised classifier")
     elif fraud_probability >= 0.40:
-        reasons.append("Moderate fraud probability from classifier")
+        reasons.append("Moderate fraud probability from supervised classifier")
     else:
-        reasons.append("Low fraud probability from classifier")
+        reasons.append("Low fraud probability from supervised classifier")
 
     if anomaly_prediction == -1:
-        reasons.append("Anomalous transaction pattern detected")
-    elif anomaly_raw_score < 0.02:
-        reasons.append("Suspicious transaction pattern detected from anomaly score")
+        reasons.append("Unusual transaction behavior detected by anomaly model")
+    elif anomaly_score < 0.02:
+        reasons.append("Borderline anomalous transaction pattern detected")
 
-    # Rule-based safeguard for large risky transaction types
-    if transaction["type"] in {"TRANSFER", "CASH_OUT"} and transaction["amount"] >= 50000:
-        risk_score = max(risk_score, 40)
+    tx_type = transaction["type"].strip().upper()
+
+    if tx_type in {"TRANSFER", "CASH_OUT"} and transaction["amount"] >= 50000:
         reasons.append("High-value transfer or cash-out transaction")
 
-    # Rule-based upstream flag
+    if transaction["oldbalanceOrg"] > 0 and transaction["newbalanceOrig"] == 0:
+        reasons.append("Source account balance drained to zero")
+
+    if transaction["oldbalanceDest"] == 0 and transaction["newbalanceDest"] == 0 and tx_type == "TRANSFER":
+        reasons.append("Destination balance pattern appears unusual for transfer")
+
     if transaction["isFlaggedFraud"] == 1:
         reasons.append("Transaction was flagged by upstream rule-based system")
+
+    return reasons
+
+
+def compute_risk_score(
+    transaction: Dict[str, Any],
+    fraud_probability: float,
+    anomaly_prediction: int,
+    anomaly_score: float,
+) -> int:
+    """
+    Compute final risk score from classifier, anomaly model, and business rules.
+    """
+    risk_score = int(round(fraud_probability * 100))
+
+    # anomaly adjustments
+    if anomaly_prediction == -1:
+        risk_score = max(risk_score, 55)
+    elif anomaly_score < 0.02:
+        risk_score = max(risk_score, 45)
+
+    # transaction-type safeguard
+    tx_type = transaction["type"].strip().upper()
+    if tx_type in {"TRANSFER", "CASH_OUT"} and transaction["amount"] >= 50000:
+        risk_score = max(risk_score, 40)
+
+    # full balance drain safeguard
+    if transaction["oldbalanceOrg"] > 0 and transaction["newbalanceOrig"] == 0:
+        risk_score = max(risk_score, 50)
+
+    # upstream system signal
+    if transaction["isFlaggedFraud"] == 1:
         risk_score = max(risk_score, 85)
 
-    risk_score = min(risk_score, 100)
+    return min(risk_score, 100)
 
-    # Final decision
+
+def map_decision(risk_score: int) -> Dict[str, str]:
+    """
+    Map risk score to decision status and recommended action.
+    """
     if risk_score >= 70:
-        status = "BLOCK"
-        recommended_action = "Block transaction and trigger security review"
-    elif risk_score >= 40:
-        status = "FLAG"
-        recommended_action = "Flag transaction for review or OTP verification"
-    else:
-        status = "APPROVE"
-        recommended_action = "Allow transaction"
-
+        return {
+            "status": "BLOCK",
+            "recommended_action": "Block transaction and trigger security review",
+        }
+    if risk_score >= 40:
+        return {
+            "status": "FLAG",
+            "recommended_action": "Flag transaction for review, OTP verification, or step-up authentication",
+        }
     return {
-        "risk_score": risk_score,
-        "status": status,
-        "fraud_probability": round(fraud_probability, 4),
-        "anomaly_prediction": anomaly_prediction,
-        "anomaly_detected": anomaly_prediction == -1,
-        "anomaly_raw_score": round(anomaly_raw_score, 6),
-        "reasons": reasons,
-        "recommended_action": recommended_action
+        "status": "APPROVE",
+        "recommended_action": "Allow transaction",
     }
 
 
-# -----------------------------
-# Example test transactions
-# -----------------------------
+# -------------------------------------------------------------------
+# Main prediction function
+# -------------------------------------------------------------------
+def predict_transaction(transaction: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Predict transaction fraud risk using:
+    - supervised classifier
+    - anomaly detector
+    - rule-based risk safeguards
+    """
+    validate_transaction(transaction)
+
+    processed_df = preprocess_transaction(transaction)
+
+    classifier_input = align_features_for_model(processed_df, classifier_model)
+    anomaly_input = align_features_for_model(processed_df, anomaly_model)
+
+    fraud_probability = float(classifier_model.predict_proba(classifier_input)[0][1])
+
+    anomaly_prediction = int(anomaly_model.predict(anomaly_input)[0])   # -1 anomaly, 1 normal
+    anomaly_raw_score = float(anomaly_model.decision_function(anomaly_input)[0])
+    anomaly_risk_score = normalize_anomaly_risk(anomaly_raw_score)
+
+    risk_score = compute_risk_score(
+        transaction=transaction,
+        fraud_probability=fraud_probability,
+        anomaly_prediction=anomaly_prediction,
+        anomaly_score=anomaly_raw_score,
+    )
+
+    reasons = derive_reasons(
+        transaction=transaction,
+        fraud_probability=fraud_probability,
+        anomaly_prediction=anomaly_prediction,
+        anomaly_score=anomaly_raw_score,
+    )
+
+    decision = map_decision(risk_score)
+
+    return {
+        "risk_score": risk_score,
+        "status": decision["status"],
+        "fraud_probability": round(fraud_probability, 6),
+        "anomaly_prediction": anomaly_prediction,
+        "anomaly_detected": anomaly_prediction == -1,
+        "anomaly_raw_score": round(anomaly_raw_score, 6),
+        "anomaly_risk_score": anomaly_risk_score,
+        "reasons": reasons,
+        "recommended_action": decision["recommended_action"],
+    }
+
+
+# -------------------------------------------------------------------
+# Demo test transactions
+# -------------------------------------------------------------------
 if __name__ == "__main__":
     test_transactions = [
-        # Test 1 - normal
         {
             "step": 1,
             "type": "PAYMENT",
@@ -219,10 +362,8 @@ if __name__ == "__main__":
             "nameDest": "C456",
             "oldbalanceDest": 0,
             "newbalanceDest": 50,
-            "isFlaggedFraud": 0
+            "isFlaggedFraud": 0,
         },
-
-        # Test 2 - fraud-like transfer
         {
             "step": 1,
             "type": "TRANSFER",
@@ -233,24 +374,8 @@ if __name__ == "__main__":
             "nameDest": "C1136419747",
             "oldbalanceDest": 0,
             "newbalanceDest": 0,
-            "isFlaggedFraud": 0
+            "isFlaggedFraud": 0,
         },
-
-        # Test 3 - fraud-like transfer
-        {
-            "step": 1,
-            "type": "TRANSFER",
-            "amount": 181,
-            "nameOrig": "C1305486145",
-            "oldbalanceOrg": 181,
-            "newbalanceOrig": 0,
-            "nameDest": "C553264065",
-            "oldbalanceDest": 0,
-            "newbalanceDest": 0,
-            "isFlaggedFraud": 0
-        },
-
-        # Test 4 - highly suspicious transfer
         {
             "step": 1,
             "type": "TRANSFER",
@@ -261,24 +386,8 @@ if __name__ == "__main__":
             "nameDest": "C431687661",
             "oldbalanceDest": 0,
             "newbalanceDest": 0,
-            "isFlaggedFraud": 0
+            "isFlaggedFraud": 0,
         },
-
-        # Test 5 - extreme anomaly
-        {
-            "step": 1,
-            "type": "TRANSFER",
-            "amount": 10000000,
-            "nameOrig": "C9999999999",
-            "oldbalanceOrg": 10000000,
-            "newbalanceOrig": 0,
-            "nameDest": "C8888888888",
-            "oldbalanceDest": 0,
-            "newbalanceDest": 10000000,
-            "isFlaggedFraud": 1
-        },
-
-        # Test 6 - cash out case
         {
             "step": 50,
             "type": "CASH_OUT",
@@ -289,66 +398,20 @@ if __name__ == "__main__":
             "nameDest": "C6666666666",
             "oldbalanceDest": 10000,
             "newbalanceDest": 220000,
-            "isFlaggedFraud": 0
+            "isFlaggedFraud": 0,
         },
-
-        # Test 7 - smaller transfer
         {
             "step": 1,
             "type": "TRANSFER",
-            "amount": 5000,
-            "nameOrig": "C7777777777",
-            "oldbalanceOrg": 5000,
+            "amount": 10000000,
+            "nameOrig": "C9999999999",
+            "oldbalanceOrg": 10000000,
             "newbalanceOrig": 0,
-            "nameDest": "C1111111111",
+            "nameDest": "C8888888888",
             "oldbalanceDest": 0,
-            "newbalanceDest": 0,
-            "isFlaggedFraud": 0
+            "newbalanceDest": 10000000,
+            "isFlaggedFraud": 1,
         },
-
-        # Test 8 - debit
-        {
-            "step": 20,
-            "type": "DEBIT",
-            "amount": 8000,
-            "nameOrig": "C2222222222",
-            "oldbalanceOrg": 12000,
-            "newbalanceOrig": 4000,
-            "nameDest": "C3333333333",
-            "oldbalanceDest": 5000,
-            "newbalanceDest": 13000,
-            "isFlaggedFraud": 0
-        },
-
-        # Test 9 - normal-looking transfer
-        {
-            "step": 30,
-            "type": "TRANSFER",
-            "amount": 12000,
-            "nameOrig": "C4444444444",
-            "oldbalanceOrg": 15000,
-            "newbalanceOrig": 3000,
-            "nameDest": "C5555555555",
-            "oldbalanceDest": 2000,
-            "newbalanceDest": 14000,
-            "isFlaggedFraud": 0
-        },
-
-        # Test 10 - anomaly-heavy but not max fraud
-        {
-            "step": 1,
-            "type": "CASH_OUT",
-            "amount": 9500000,
-            "nameOrig": "C1010101010",
-            "oldbalanceOrg": 9600000,
-            "newbalanceOrig": 100000,
-            "nameDest": "C2020202020",
-            "oldbalanceDest": 500,
-            "newbalanceDest": 9500500,
-            "isFlaggedFraud": 0
-        },
-
-        # Test 11 - invalid transaction (negative amount)
         {
             "step": 5,
             "type": "PAYMENT",
@@ -359,47 +422,17 @@ if __name__ == "__main__":
             "nameDest": "C888000222",
             "oldbalanceDest": 1000,
             "newbalanceDest": 900,
-            "isFlaggedFraud": 0
+            "isFlaggedFraud": 0,
         },
-
-        # Test 12 - unusual balance pattern
-        {
-            "step": 1,
-            "type": "TRANSFER",
-            "amount": 1429051.47,
-            "nameOrig": "C1212121212",
-            "oldbalanceOrg": 0.00,
-            "newbalanceOrig": 0.00,
-            "nameDest": "C3434343434",
-            "oldbalanceDest": 2041543.62,
-            "newbalanceDest": 19169204.93,
-            "isFlaggedFraud": 0
-        },
-
-        # Test 13 - CASH_IN baseline category support
-        {
-            "step": 10,
-            "type": "CASH_IN",
-            "amount": 3000,
-            "nameOrig": "C5656565656",
-            "oldbalanceOrg": 0,
-            "newbalanceOrig": 3000,
-            "nameDest": "C7878787878",
-            "oldbalanceDest": 10000,
-            "newbalanceDest": 7000,
-            "isFlaggedFraud": 0
-        }
     ]
 
-    for i, tx in enumerate(test_transactions):
-        print(f"\nTest Transaction {i+1}")
-
-        if i == 5:  # Transaction 6
-            print("Processed features for Transaction 6:")
-            print(preprocess_transaction(tx).to_string(index=False))
-
+    for i, tx in enumerate(test_transactions, start=1):
+        print(f"\nTest Transaction {i}")
         try:
+            processed = preprocess_transaction(tx)
+            print("Processed feature shape:", processed.shape)
+
             result = predict_transaction(tx)
-            print(result)
+            print(json.dumps(result, indent=2))
         except ValueError as e:
-            print({"error": str(e)})
+            print(json.dumps({"error": str(e)}, indent=2))

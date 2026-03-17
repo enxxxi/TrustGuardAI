@@ -1,0 +1,34 @@
+{
+    "raw_shape": [
+        200000,
+        11
+    ],
+    "processed_shape": [
+        200000,
+        47
+    ],
+    "feature_shape": [
+        200000,
+        45
+    ],
+    "fraud_distribution": {
+        "0": 199853,
+        "1": 147
+    },
+    "contamination": 0.00075,
+    "anomaly_prediction_distribution": {
+        "0": 199850,
+        "1": 150
+    },
+    "decision_function_summary": {
+        "min": -0.05257210926777478,
+        "max": 0.2865846995215131,
+        "mean": 0.22729135357742744,
+        "std": 0.04494011056713885
+    },
+    "fraud_detected_as_anomaly": 5,
+    "total_fraud_cases": 147,
+    "total_predicted_anomalies": 150,
+    "recommended_system_role": "auxiliary_anomaly_signal",
+    "note": "Isolation Forest is used as an unsupervised anomaly signal to supplement the supervised fraud classifier, not replace it."
+}

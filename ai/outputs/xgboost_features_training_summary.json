@@ -1,0 +1,34 @@
+{
+    "raw_shape": [
+        200000,
+        11
+    ],
+    "processed_shape": [
+        200000,
+        47
+    ],
+    "feature_shape": [
+        200000,
+        45
+    ],
+    "train_shape": [
+        160000,
+        45
+    ],
+    "test_shape": [
+        40000,
+        45
+    ],
+    "train_distribution": {
+        "0": 159882,
+        "1": 118
+    },
+    "test_distribution": {
+        "0": 39971,
+        "1": 29
+    },
+    "imbalance_strategy": "scale_pos_weight",
+    "scale_pos_weight": 1354.9322033898304,
+    "cross_validation_mean_roc_auc": 0.9954447859295344,
+    "cross_validation_std_roc_auc": 0.0054169666807903786
+}
