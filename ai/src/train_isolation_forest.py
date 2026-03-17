@@ -12,8 +12,12 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
+from sklearn.model_selection import train_test_split
 
-from load_dataset import load_data, preprocess_data
+try:
+    from src.load_dataset import load_data, preprocess_data
+except ModuleNotFoundError:
+    from load_dataset import load_data, preprocess_data
 
 
 # -------------------------------------------------------------------
@@ -21,9 +25,8 @@ from load_dataset import load_data, preprocess_data
 # -------------------------------------------------------------------
 DATA_PATH = "data/paysim.csv"
 NROWS = 200000
+TEST_SIZE = 0.2
 RANDOM_STATE = 42
-
-# Slightly conservative anomaly rate for fraud-like outliers
 CONTAMINATION = 0.00075
 
 MODEL_DIR = Path("models")
@@ -42,9 +45,7 @@ TOP_ANOMALIES_PATH = OUTPUT_DIR / "top_isolation_forest_anomalies.csv"
 def prepare_anomaly_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Prepare numeric feature matrix for Isolation Forest.
-
-    Drops supervised target columns while preserving engineered behavioral
-    features from the shared preprocessing pipeline.
+    Drops supervised target columns while preserving engineered features.
     """
     drop_cols = []
 
@@ -84,13 +85,10 @@ def build_model() -> IsolationForest:
 # -------------------------------------------------------------------
 def convert_iforest_predictions(raw_pred: np.ndarray) -> np.ndarray:
     """
-    IsolationForest outputs:
-    -1 = anomaly
-     1 = normal
-
-    Convert to:
-    1 = anomaly
-    0 = normal
+    Convert IsolationForest outputs:
+    -1 = anomaly, 1 = normal
+    into:
+    1 = anomaly, 0 = normal
     """
     return np.where(raw_pred == -1, 1, 0)
 
@@ -98,11 +96,8 @@ def convert_iforest_predictions(raw_pred: np.ndarray) -> np.ndarray:
 def normalize_anomaly_score(decision_scores: np.ndarray) -> np.ndarray:
     """
     Convert Isolation Forest decision_function outputs into a normalized
-    anomaly intensity score between 0 and 100, where higher means more anomalous.
-
-    decision_function:
-    - lower => more anomalous
-    - higher => more normal
+    anomaly intensity score between 0 and 100.
+    Lower decision_function => more anomalous.
     """
     min_score = np.min(decision_scores)
     max_score = np.max(decision_scores)
@@ -117,25 +112,15 @@ def normalize_anomaly_score(decision_scores: np.ndarray) -> np.ndarray:
 # -------------------------------------------------------------------
 # Evaluation
 # -------------------------------------------------------------------
-def evaluate_against_fraud_labels(
-    y_true: pd.Series,
-    anomaly_pred_binary: np.ndarray,
-) -> dict:
+def evaluate_against_fraud_labels(y_true: pd.Series, anomaly_pred_binary: np.ndarray) -> dict:
     """
     Evaluate anomaly signal against known fraud labels.
-    This is a proxy usefulness check, not a claim that the unsupervised
-    model is the primary fraud classifier.
+    This is a proxy usefulness check, not a standalone fraud benchmark.
     """
     metrics = {
-        "precision": float(
-            precision_score(y_true, anomaly_pred_binary, zero_division=0)
-        ),
-        "recall": float(
-            recall_score(y_true, anomaly_pred_binary, zero_division=0)
-        ),
-        "f1_score": float(
-            f1_score(y_true, anomaly_pred_binary, zero_division=0)
-        ),
+        "precision": float(precision_score(y_true, anomaly_pred_binary, zero_division=0)),
+        "recall": float(recall_score(y_true, anomaly_pred_binary, zero_division=0)),
+        "f1_score": float(f1_score(y_true, anomaly_pred_binary, zero_division=0)),
         "confusion_matrix": confusion_matrix(y_true, anomaly_pred_binary).tolist(),
         "classification_report": classification_report(
             y_true,
@@ -163,24 +148,31 @@ def print_metrics(metrics: dict):
     print(metrics["confusion_matrix"])
 
     print("\nClassification Report:")
-    report_df = pd.DataFrame(metrics["classification_report"]).transpose()
-    print(report_df)
+    print(pd.DataFrame(metrics["classification_report"]).transpose())
 
 
 # -------------------------------------------------------------------
 # Analysis helpers
 # -------------------------------------------------------------------
 def build_anomaly_analysis_df(
+    raw_df: pd.DataFrame,
     processed_df: pd.DataFrame,
     raw_pred: np.ndarray,
     anomaly_binary_pred: np.ndarray,
     decision_scores: np.ndarray,
 ) -> pd.DataFrame:
     """
-    Build detailed anomaly analysis table.
+    Build detailed anomaly analysis table with raw transaction context.
     """
     analysis_df = pd.DataFrame({
-        "isFraud": processed_df["isFraud"].astype(int),
+        "step": raw_df["step"].values,
+        "type": raw_df["type"].values,
+        "amount": raw_df["amount"].values,
+        "oldbalanceOrg": raw_df["oldbalanceOrg"].values,
+        "newbalanceOrig": raw_df["newbalanceOrig"].values,
+        "oldbalanceDest": raw_df["oldbalanceDest"].values,
+        "newbalanceDest": raw_df["newbalanceDest"].values,
+        "isFraud": processed_df["isFraud"].astype(int).values,
         "iforest_raw_pred": raw_pred,
         "anomaly_binary_pred": anomaly_binary_pred,
         "decision_score": decision_scores,
@@ -197,7 +189,7 @@ def print_top_anomalies(analysis_df: pd.DataFrame, top_n: int = 20):
     top_anomalies = analysis_df.sort_values(by="decision_score", ascending=True).head(top_n)
 
     print(f"\nTop {top_n} most anomalous samples:")
-    print(top_anomalies)
+    print(top_anomalies.to_string(index=False))
 
     return top_anomalies
 
@@ -243,10 +235,10 @@ def train_isolation_forest():
     """
     End-to-end Isolation Forest training pipeline.
 
-    Important framing:
+    Framing:
     - trains an unsupervised anomaly detector
-    - evaluates it against fraud labels as a proxy usefulness check
-    - intended for hybrid risk scoring, not standalone final fraud decisioning
+    - evaluates its usefulness against fraud labels
+    - intended as an auxiliary signal in hybrid risk scoring
     """
     print("Loading PaySim dataset...")
     raw_df = load_data(path=DATA_PATH, nrows=NROWS)
@@ -269,37 +261,52 @@ def train_isolation_forest():
     print("\nFraud percentage:")
     print(y_true.value_counts(normalize=True))
 
-    print("\nTraining Isolation Forest...")
+    # Holdout split for a more defensible usefulness check
+    X_train, X_test, y_train, y_test, raw_train, raw_test, processed_train, processed_test = train_test_split(
+        X,
+        y_true,
+        raw_df,
+        processed_df,
+        test_size=TEST_SIZE,
+        random_state=RANDOM_STATE,
+        stratify=y_true,
+    )
+
+    print("\nTraining Isolation Forest on training split...")
     model = build_model()
-    model.fit(X)
+    model.fit(X_train)
 
-    raw_pred = model.predict(X)  # -1 anomaly, 1 normal
-    anomaly_binary_pred = convert_iforest_predictions(raw_pred)
-    decision_scores = model.decision_function(X)
+    raw_pred_test = model.predict(X_test)
+    anomaly_binary_pred_test = convert_iforest_predictions(raw_pred_test)
+    decision_scores_test = model.decision_function(X_test)
 
-    print("\nAnomaly prediction distribution:")
-    print(pd.Series(anomaly_binary_pred).value_counts().sort_index())
+    print("\nAnomaly prediction distribution on test split:")
+    print(pd.Series(anomaly_binary_pred_test).value_counts().sort_index())
 
-    print("\nDecision function summary:")
-    print(pd.Series(decision_scores).describe())
+    print("\nDecision function summary on test split:")
+    print(pd.Series(decision_scores_test).describe())
 
-    metrics = evaluate_against_fraud_labels(y_true, anomaly_binary_pred)
+    metrics = evaluate_against_fraud_labels(y_test, anomaly_binary_pred_test)
+    metrics["model_name"] = "IsolationForest"
+    metrics["evaluation_scope"] = "holdout_test_proxy_check"
+    metrics["contamination"] = CONTAMINATION
+    metrics["train_rows"] = int(len(X_train))
+    metrics["test_rows"] = int(len(X_test))
+    metrics["train_fraud_count"] = int(y_train.sum())
+    metrics["test_fraud_count"] = int(y_test.sum())
+
     print_metrics(metrics)
 
     anomaly_analysis_df = build_anomaly_analysis_df(
-        processed_df=processed_df,
-        raw_pred=raw_pred,
-        anomaly_binary_pred=anomaly_binary_pred,
-        decision_scores=decision_scores,
+        raw_df=raw_test.reset_index(drop=True),
+        processed_df=processed_test.reset_index(drop=True),
+        raw_pred=raw_pred_test,
+        anomaly_binary_pred=anomaly_binary_pred_test,
+        decision_scores=decision_scores_test,
     )
 
-    print("\nFraud vs anomaly crosstab:")
-    print(
-        pd.crosstab(
-            anomaly_analysis_df["isFraud"],
-            anomaly_analysis_df["anomaly_binary_pred"],
-        )
-    )
+    print("\nFraud vs anomaly crosstab (test split):")
+    print(pd.crosstab(anomaly_analysis_df["isFraud"], anomaly_analysis_df["anomaly_binary_pred"]))
 
     top_anomalies_df = print_top_anomalies(anomaly_analysis_df, top_n=20)
 
@@ -310,30 +317,35 @@ def train_isolation_forest():
         ].shape[0]
     )
 
-    total_fraud = int(y_true.sum())
+    total_fraud = int(y_test.sum())
     total_anomalies = int(anomaly_analysis_df["anomaly_binary_pred"].sum())
 
     training_summary = {
         "raw_shape": list(raw_df.shape),
         "processed_shape": list(processed_df.shape),
         "feature_shape": list(X.shape),
-        "fraud_distribution": {
-            str(k): int(v) for k, v in y_true.value_counts().to_dict().items()
+        "train_shape": list(X_train.shape),
+        "test_shape": list(X_test.shape),
+        "fraud_distribution_train": {
+            str(k): int(v) for k, v in y_train.value_counts().to_dict().items()
+        },
+        "fraud_distribution_test": {
+            str(k): int(v) for k, v in y_test.value_counts().to_dict().items()
         },
         "contamination": CONTAMINATION,
-        "anomaly_prediction_distribution": {
+        "anomaly_prediction_distribution_test": {
             str(k): int(v)
-            for k, v in pd.Series(anomaly_binary_pred).value_counts().to_dict().items()
+            for k, v in pd.Series(anomaly_binary_pred_test).value_counts().to_dict().items()
         },
-        "decision_function_summary": {
-            "min": float(np.min(decision_scores)),
-            "max": float(np.max(decision_scores)),
-            "mean": float(np.mean(decision_scores)),
-            "std": float(np.std(decision_scores)),
+        "decision_function_summary_test": {
+            "min": float(np.min(decision_scores_test)),
+            "max": float(np.max(decision_scores_test)),
+            "mean": float(np.mean(decision_scores_test)),
+            "std": float(np.std(decision_scores_test)),
         },
-        "fraud_detected_as_anomaly": fraud_detected_as_anomaly,
-        "total_fraud_cases": total_fraud,
-        "total_predicted_anomalies": total_anomalies,
+        "fraud_detected_as_anomaly_test": fraud_detected_as_anomaly,
+        "total_fraud_cases_test": total_fraud,
+        "total_predicted_anomalies_test": total_anomalies,
         "recommended_system_role": "auxiliary_anomaly_signal",
         "note": (
             "Isolation Forest is used as an unsupervised anomaly signal to "

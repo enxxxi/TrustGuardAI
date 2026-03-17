@@ -26,17 +26,7 @@ REQUIRED_COLUMNS = [
     "isFlaggedFraud",
 ]
 
-NUMERIC_BASE_COLUMNS = [
-    "step",
-    "amount",
-    "oldbalanceOrg",
-    "newbalanceOrig",
-    "oldbalanceDest",
-    "newbalanceDest",
-    "isFlaggedFraud",
-]
-
-CATEGORICAL_COLUMNS = ["type"]
+VALID_TRANSACTION_TYPES = {"CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER"}
 
 DEFAULT_DATA_PATH = "data/paysim.csv"
 DEFAULT_NROWS = 200000
@@ -50,13 +40,6 @@ DEFAULT_RANDOM_STATE = 42
 def load_data(path: str = DEFAULT_DATA_PATH, nrows: Optional[int] = DEFAULT_NROWS) -> pd.DataFrame:
     """
     Load PaySim dataset and validate required columns.
-
-    Args:
-        path: Path to CSV file.
-        nrows: Number of rows to load. Use None to load all rows.
-
-    Returns:
-        DataFrame containing raw dataset.
     """
     csv_path = Path(path)
     if not csv_path.exists():
@@ -82,8 +65,8 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     - remove exact duplicates
     - standardize transaction type
     - coerce numeric columns
-    - fill missing values safely
-    - clip negative balances to zero (defensive cleaning)
+    - fill missing values
+    - clip negative monetary values to zero
     """
     df = df.copy()
 
@@ -95,15 +78,12 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
         print(f"Removed duplicate rows: {removed_duplicates}")
 
     # Standardize transaction type
-    df["type"] = (
-        df["type"]
-        .astype(str)
-        .str.strip()
-        .str.upper()
-        .replace({"NAN": "UNKNOWN"})
-    )
+    df["type"] = df["type"].astype(str).str.strip().str.upper()
 
-    # Coerce numeric columns
+    # Invalid / unknown transaction types are mapped to PAYMENT-safe fallback
+    # to avoid train/inference inconsistency with unsupported categories.
+    df.loc[~df["type"].isin(VALID_TRANSACTION_TYPES), "type"] = "PAYMENT"
+
     numeric_cols = [
         "step",
         "amount",
@@ -118,24 +98,27 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Fill missing values
+    # Fill missing numeric values conservatively
     df[numeric_cols] = df[numeric_cols].fillna(0)
-    df["type"] = df["type"].fillna("UNKNOWN")
 
-    # Defensive cleanup for impossible negatives in balances / amounts
-    balance_cols = [
+    # Defensive cleanup for impossible negatives in monetary columns
+    money_cols = [
         "amount",
         "oldbalanceOrg",
         "newbalanceOrig",
         "oldbalanceDest",
         "newbalanceDest",
     ]
-    for col in balance_cols:
+    for col in money_cols:
         df[col] = df[col].clip(lower=0)
 
-    # Force fraud labels to integer 0/1
-    df["isFraud"] = df["isFraud"].astype(int)
-    df["isFlaggedFraud"] = df["isFlaggedFraud"].astype(int)
+    # Force labels to integer form
+    df["isFraud"] = df["isFraud"].fillna(0).astype(int)
+    df["isFlaggedFraud"] = df["isFlaggedFraud"].fillna(0).astype(int)
+
+    # Ensure identifier columns exist and are string-like
+    df["nameOrig"] = df["nameOrig"].fillna("C_UNKNOWN_ORIG").astype(str)
+    df["nameDest"] = df["nameDest"].fillna("C_UNKNOWN_DEST").astype(str)
 
     return df
 
@@ -147,12 +130,9 @@ def add_behavioral_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Create fraud-relevant behavioral features.
 
-    Feature themes:
-    - balance consistency
-    - suspicious zero-balance behavior
-    - amount ratios
-    - temporal behavior proxies
-    - transaction structure / account flow signals
+    Notes:
+    - These are transaction-level features, designed to support low-latency scoring.
+    - Some account-prefix features are specific to the PaySim synthetic dataset.
     """
     df = df.copy()
     eps = 1e-6
@@ -202,13 +182,8 @@ def add_behavioral_features(df: pd.DataFrame) -> pd.DataFrame:
         (df["oldbalanceOrg"] > 0) & (df["newbalanceOrig"] == 0)
     ).astype(int)
 
-    df["amount_exceeds_oldbalanceOrg"] = (
-        df["amount"] > df["oldbalanceOrg"]
-    ).astype(int)
-
-    df["amount_exceeds_oldbalanceDest"] = (
-        df["amount"] > df["oldbalanceDest"]
-    ).astype(int)
+    df["amount_exceeds_oldbalanceOrg"] = (df["amount"] > df["oldbalanceOrg"]).astype(int)
+    df["amount_exceeds_oldbalanceDest"] = (df["amount"] > df["oldbalanceDest"]).astype(int)
 
     df["balance_change_mismatch"] = (
         (df["abs_org_amount_diff"] > 1) | (df["abs_dest_amount_diff"] > 1)
@@ -216,7 +191,7 @@ def add_behavioral_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # ---------------------------------------------------------------
     # Time-based proxy features
-    # Note: PaySim step is hour-like progression
+    # PaySim step behaves like elapsed hours
     # ---------------------------------------------------------------
     df["hour_of_day"] = df["step"] % 24
     df["day_index"] = df["step"] // 24
@@ -226,6 +201,9 @@ def add_behavioral_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # ---------------------------------------------------------------
     # Amount scale features
+    # NOTE: dataset-level quantiles are convenient for this project,
+    # though in a stricter production pipeline these would ideally be
+    # learned from training data only and reused for inference.
     # ---------------------------------------------------------------
     df["log_amount"] = np.log1p(df["amount"])
 
@@ -238,9 +216,7 @@ def add_behavioral_features(df: pd.DataFrame) -> pd.DataFrame:
     df["is_extreme_transaction"] = (df["amount"] > p99_amount).astype(int)
 
     # ---------------------------------------------------------------
-    # Account-type proxy from IDs
-    # In PaySim, destination often starts with M or C
-    # We do not keep raw identifiers, only derived proxy patterns
+    # Account-type proxy features from synthetic IDs
     # ---------------------------------------------------------------
     df["dest_is_merchant"] = df["nameDest"].astype(str).str.startswith("M").astype(int)
     df["dest_is_customer"] = df["nameDest"].astype(str).str.startswith("C").astype(int)
@@ -270,18 +246,13 @@ def encode_transaction_type(df: pd.DataFrame) -> pd.DataFrame:
 # -------------------------------------------------------------------
 # Full preprocessing
 # -------------------------------------------------------------------
-def preprocess_data(
-    df: pd.DataFrame,
-    drop_identifiers: bool = True,
-) -> pd.DataFrame:
+def preprocess_data(df: pd.DataFrame, drop_identifiers: bool = True) -> pd.DataFrame:
     """
-    Full preprocessing pipeline.
-
-    Steps:
+    Full preprocessing pipeline:
     - clean raw data
-    - feature engineering
+    - add engineered features
     - encode categorical variables
-    - optionally drop raw identifiers after deriving useful proxy features
+    - optionally drop raw identifiers
     """
     df = clean_data(df)
     df = add_behavioral_features(df)
@@ -292,7 +263,6 @@ def preprocess_data(
         if cols_to_drop:
             df = df.drop(columns=cols_to_drop)
 
-    # Final defensive check: convert booleans to integers if any remain
     bool_cols = df.select_dtypes(include=["bool"]).columns.tolist()
     if bool_cols:
         df[bool_cols] = df[bool_cols].astype(int)
@@ -309,22 +279,13 @@ def get_feature_target_split(
     drop_leakage_cols: bool = True,
 ) -> Tuple[pd.DataFrame, pd.Series]:
     """
-    Split processed dataframe into X and y.
-
-    Args:
-        df: Preprocessed dataframe.
-        target_col: Target column.
-        drop_leakage_cols: Drop columns not intended for model training.
-
-    Returns:
-        X, y
+    Split processed dataframe into features X and target y.
     """
     if target_col not in df.columns:
         raise ValueError(f"Target column '{target_col}' not found.")
 
     cols_to_drop = [target_col]
 
-    # This column is a labeled rule-style flag in dataset and can create unfair leakage
     if drop_leakage_cols and "isFlaggedFraud" in df.columns:
         cols_to_drop.append("isFlaggedFraud")
 
@@ -348,6 +309,7 @@ def get_train_test_data(
     """
     raw_df = load_data(path=path, nrows=nrows)
     processed_df = preprocess_data(raw_df)
+
     X, y = get_feature_target_split(
         processed_df,
         target_col="isFraud",
@@ -449,7 +411,7 @@ def feature_summary_report(processed_df: pd.DataFrame) -> None:
     numeric_cols = processed_df.select_dtypes(include=[np.number]).columns.tolist()
     print(f"Total numeric columns: {len(numeric_cols)}")
 
-    suspicious_cols = [
+    highlight_cols = [
         "org_balance_change",
         "dest_balance_change",
         "org_amount_diff",
@@ -461,7 +423,7 @@ def feature_summary_report(processed_df: pd.DataFrame) -> None:
         "is_night_transaction",
         "is_extreme_transaction",
     ]
-    existing_cols = [col for col in suspicious_cols if col in processed_df.columns]
+    existing_cols = [col for col in highlight_cols if col in processed_df.columns]
 
     if existing_cols:
         print("\nSelected engineered features preview:")

@@ -1,10 +1,17 @@
-from typing import List
+from datetime import datetime, timezone
+from typing import List, Literal
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from src.predict import predict_transaction
+try:
+    from src.predict import load_models, predict_transaction
+except ModuleNotFoundError:
+    from predict import load_models, predict_transaction
 
+
+APP_VERSION = "1.0.0"
+VALID_TRANSACTION_TYPES = {"CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER"}
 
 app = FastAPI(
     title="TrustGuard AI Fraud Detection API",
@@ -13,7 +20,7 @@ app = FastAPI(
         "The engine combines a supervised fraud classifier, anomaly detection, "
         "and rule-based safeguards to return APPROVE / FLAG / BLOCK decisions."
     ),
-    version="1.0.0",
+    version=APP_VERSION,
 )
 
 
@@ -33,10 +40,9 @@ class TransactionRequest(BaseModel):
     @field_validator("type")
     @classmethod
     def validate_type(cls, value: str) -> str:
-        valid_types = {"CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER"}
         value = value.strip().upper()
-        if value not in valid_types:
-            raise ValueError(f"Invalid transaction type. Must be one of: {sorted(valid_types)}")
+        if value not in VALID_TRANSACTION_TYPES:
+            raise ValueError(f"Invalid transaction type. Must be one of: {sorted(VALID_TRANSACTION_TYPES)}")
         return value
 
     @field_validator("isFlaggedFraud")
@@ -48,51 +54,95 @@ class TransactionRequest(BaseModel):
 
 
 class PredictionResponse(BaseModel):
-    risk_score: int
-    status: str
-    fraud_probability: float
-    anomaly_prediction: int
-    anomaly_detected: bool
-    anomaly_raw_score: float
-    anomaly_risk_score: float
-    reasons: List[str]
-    recommended_action: str
+    risk_score: int = Field(..., description="Final risk score from 0 to 100")
+    status: Literal["APPROVE", "FLAG", "BLOCK"] = Field(..., description="Final decision for the transaction")
+    fraud_probability: float = Field(..., description="Fraud probability from supervised classifier")
+    anomaly_prediction: int = Field(..., description="Isolation Forest output: 1 = normal, -1 = anomaly")
+    anomaly_detected: bool = Field(..., description="Whether anomaly model marked the transaction as unusual")
+    anomaly_raw_score: float = Field(..., description="Raw decision score from anomaly model")
+    anomaly_risk_score: float = Field(..., description="Normalized anomaly risk score from 0 to 100")
+    reasons: List[str] = Field(..., description="Human-readable explanations for the decision")
+    recommended_action: str = Field(..., description="Suggested downstream action for wallet/app backend")
+    model_version: str = Field(..., description="API/model version identifier")
+    scored_at_utc: str = Field(..., description="UTC timestamp when scoring was completed")
 
 
 class HealthResponse(BaseModel):
     status: str
     service: str
     version: str
+    models_loaded: bool
+
+
+class HomeResponse(BaseModel):
+    message: str
+    docs: str
+    health: str
+    predict_endpoint: str
+    version: str
+
+
+# -------------------------------------------------------------------
+# Startup
+# -------------------------------------------------------------------
+@app.on_event("startup")
+def startup_event():
+    """
+    Keep startup lightweight for deployment.
+    Models will still be loaded on first request or health check.
+    """
+    pass
 
 
 # -------------------------------------------------------------------
 # Routes
 # -------------------------------------------------------------------
-@app.get("/", tags=["General"])
+@app.get("/", response_model=HomeResponse, tags=["General"])
 def home():
-    return {
-        "message": "TrustGuard AI API is running",
-        "docs": "/docs",
-        "health": "/health",
-        "predict_endpoint": "/predict",
-    }
+    return HomeResponse(
+        message="TrustGuard AI API is running",
+        docs="/docs",
+        health="/health",
+        predict_endpoint="/predict",
+        version=APP_VERSION,
+    )
 
 
 @app.get("/health", response_model=HealthResponse, tags=["General"])
 def health_check():
+    try:
+        load_models()
+        models_loaded = True
+        status = "ok"
+    except Exception:
+        models_loaded = False
+        status = "degraded"
+
     return HealthResponse(
-        status="ok",
+        status=status,
         service="TrustGuard AI Fraud Detection API",
-        version="1.0.0",
+        version=APP_VERSION,
+        models_loaded=models_loaded,
     )
 
 
-@app.post("/predict", response_model=PredictionResponse, tags=["Prediction"])
+@app.post(
+    "/predict",
+    response_model=PredictionResponse,
+    tags=["Prediction"],
+    summary="Score a transaction for fraud risk",
+    description="Returns a real-time APPROVE / FLAG / BLOCK decision for a transaction.",
+)
 def predict(data: TransactionRequest):
     try:
         transaction_data = data.model_dump()
         result = predict_transaction(transaction_data)
-        return PredictionResponse(**result)
+
+        return PredictionResponse(
+            **result,
+            model_version=APP_VERSION,
+            scored_at_utc=datetime.now(timezone.utc).isoformat(),
+        )
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

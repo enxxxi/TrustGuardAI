@@ -30,5 +30,7 @@
     "imbalance_strategy": "scale_pos_weight",
     "scale_pos_weight": 1354.9322033898304,
     "cross_validation_mean_roc_auc": 0.9954447859295344,
-    "cross_validation_std_roc_auc": 0.0054169666807903786
+    "cross_validation_std_roc_auc": 0.0054169666807903786,
+    "cross_validation_mean_pr_auc": 0.9498054101280708,
+    "cross_validation_std_pr_auc": 0.019070366033418117
 }

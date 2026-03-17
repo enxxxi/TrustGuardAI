@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Dict, Tuple
 
 import joblib
 import pandas as pd
@@ -8,6 +9,7 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     f1_score,
+    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
@@ -15,7 +17,10 @@ from sklearn.metrics import (
 from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 from xgboost import XGBClassifier
 
-from load_dataset import load_data, preprocess_data
+try:
+    from src.load_dataset import load_data, preprocess_data
+except ModuleNotFoundError:
+    from load_dataset import load_data, preprocess_data
 
 
 # -------------------------------------------------------------------
@@ -26,6 +31,7 @@ NROWS = 200000
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
 CV_FOLDS = 5
+DEFAULT_THRESHOLD = 0.5
 
 MODEL_DIR = Path("models")
 OUTPUT_DIR = Path("outputs")
@@ -40,11 +46,14 @@ CV_RESULTS_PATH = OUTPUT_DIR / "xgboost_features_cv_results.json"
 # -------------------------------------------------------------------
 # Data preparation
 # -------------------------------------------------------------------
-def prepare_features_and_target(df: pd.DataFrame):
+def prepare_features_and_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Prepare model features and target.
     """
     target_col = "isFraud"
+    if target_col not in df.columns:
+        raise ValueError(f"Target column '{target_col}' not found.")
+
     cols_to_drop = [target_col]
 
     if "isFlaggedFraud" in df.columns:
@@ -61,7 +70,7 @@ def prepare_features_and_target(df: pd.DataFrame):
 # -------------------------------------------------------------------
 def build_model(scale_pos_weight: float) -> XGBClassifier:
     """
-    Build XGBoost classifier for engineered-feature training.
+    Build XGBoost classifier for engineered/shared-feature training.
     """
     return XGBClassifier(
         n_estimators=350,
@@ -83,16 +92,54 @@ def build_model(scale_pos_weight: float) -> XGBClassifier:
 
 
 # -------------------------------------------------------------------
+# Threshold utilities
+# -------------------------------------------------------------------
+def predict_with_threshold(y_prob, threshold: float):
+    return (y_prob >= threshold).astype(int)
+
+
+def find_best_f1_threshold(y_true, y_prob) -> Dict[str, float]:
+    """
+    Search thresholds from PR curve and return the best F1 threshold.
+    """
+    precision, recall, thresholds = precision_recall_curve(y_true, y_prob)
+
+    best_threshold = DEFAULT_THRESHOLD
+    best_f1 = -1.0
+    best_precision = 0.0
+    best_recall = 0.0
+
+    for i, threshold in enumerate(thresholds):
+        p = precision[i]
+        r = recall[i]
+        f1 = 0.0 if (p + r) == 0 else 2 * p * r / (p + r)
+
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = float(threshold)
+            best_precision = float(p)
+            best_recall = float(r)
+
+    return {
+        "best_f1_threshold": round(best_threshold, 6),
+        "best_f1_from_pr_curve": round(best_f1, 6),
+        "precision_at_best_f1": round(best_precision, 6),
+        "recall_at_best_f1": round(best_recall, 6),
+    }
+
+
+# -------------------------------------------------------------------
 # Evaluation
 # -------------------------------------------------------------------
-def evaluate_model(model, X_test, y_test):
+def evaluate_model(model, X_test, y_test, threshold: float = DEFAULT_THRESHOLD):
     """
     Evaluate model using fraud-relevant metrics.
     """
-    y_pred = model.predict(X_test)
     y_prob = model.predict_proba(X_test)[:, 1]
+    y_pred = predict_with_threshold(y_prob, threshold)
 
     metrics = {
+        "threshold": float(threshold),
         "roc_auc": float(roc_auc_score(y_test, y_prob)),
         "pr_auc": float(average_precision_score(y_test, y_prob)),
         "precision": float(precision_score(y_test, y_pred, zero_division=0)),
@@ -107,6 +154,7 @@ def evaluate_model(model, X_test, y_test):
         ),
     }
 
+    metrics.update(find_best_f1_threshold(y_test, y_prob))
     return metrics
 
 
@@ -115,11 +163,16 @@ def print_metrics(metrics: dict):
     print("XGBOOST FEATURES MODEL EVALUATION")
     print("=" * 70)
 
-    print(f"ROC-AUC   : {metrics['roc_auc']:.6f}")
-    print(f"PR-AUC    : {metrics['pr_auc']:.6f}")
-    print(f"Precision : {metrics['precision']:.6f}")
-    print(f"Recall    : {metrics['recall']:.6f}")
-    print(f"F1-Score  : {metrics['f1_score']:.6f}")
+    print(f"Threshold used        : {metrics['threshold']:.6f}")
+    print(f"ROC-AUC               : {metrics['roc_auc']:.6f}")
+    print(f"PR-AUC                : {metrics['pr_auc']:.6f}")
+    print(f"Precision             : {metrics['precision']:.6f}")
+    print(f"Recall                : {metrics['recall']:.6f}")
+    print(f"F1-Score              : {metrics['f1_score']:.6f}")
+    print(f"Best F1 threshold     : {metrics['best_f1_threshold']:.6f}")
+    print(f"Best F1 from PR curve : {metrics['best_f1_from_pr_curve']:.6f}")
+    print(f"Precision @ best F1   : {metrics['precision_at_best_f1']:.6f}")
+    print(f"Recall @ best F1      : {metrics['recall_at_best_f1']:.6f}")
 
     print("\nConfusion Matrix:")
     print(metrics["confusion_matrix"])
@@ -148,7 +201,7 @@ def save_feature_importance(model, feature_names):
 
     print(f"\nFeature importance saved to: {FEATURE_IMPORTANCE_PATH}")
     print("\nTop 15 important features:")
-    print(importance_df.head(15))
+    print(importance_df.head(15).to_string(index=False))
 
 
 # -------------------------------------------------------------------
@@ -156,14 +209,14 @@ def save_feature_importance(model, feature_names):
 # -------------------------------------------------------------------
 def run_cross_validation(X, y, scale_pos_weight: float):
     """
-    Run stratified cross-validation using ROC-AUC.
+    Run stratified cross-validation using ROC-AUC and PR-AUC.
     """
     print("\nRunning stratified cross-validation...")
 
     cv_model = build_model(scale_pos_weight=scale_pos_weight)
     cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
 
-    scores = cross_val_score(
+    roc_auc_scores = cross_val_score(
         cv_model,
         X,
         y,
@@ -172,22 +225,36 @@ def run_cross_validation(X, y, scale_pos_weight: float):
         n_jobs=-1,
     )
 
+    pr_auc_scores = cross_val_score(
+        cv_model,
+        X,
+        y,
+        cv=cv,
+        scoring="average_precision",
+        n_jobs=-1,
+    )
+
     cv_results = {
         "cv_folds": CV_FOLDS,
-        "roc_auc_scores": [float(score) for score in scores],
-        "mean_roc_auc": float(scores.mean()),
-        "std_roc_auc": float(scores.std()),
+        "roc_auc_scores": [float(score) for score in roc_auc_scores],
+        "mean_roc_auc": float(roc_auc_scores.mean()),
+        "std_roc_auc": float(roc_auc_scores.std()),
+        "pr_auc_scores": [float(score) for score in pr_auc_scores],
+        "mean_pr_auc": float(pr_auc_scores.mean()),
+        "std_pr_auc": float(pr_auc_scores.std()),
     }
 
-    print("Cross-validation ROC-AUC scores:", scores)
-    print("Mean ROC-AUC:", scores.mean())
-    print("Std ROC-AUC :", scores.std())
+    print("Cross-validation ROC-AUC scores:", roc_auc_scores)
+    print("Mean ROC-AUC:", roc_auc_scores.mean())
+    print("Std ROC-AUC :", roc_auc_scores.std())
+    print("Cross-validation PR-AUC scores:", pr_auc_scores)
+    print("Mean PR-AUC :", pr_auc_scores.mean())
+    print("Std PR-AUC  :", pr_auc_scores.std())
 
     with open(CV_RESULTS_PATH, "w", encoding="utf-8") as f:
         json.dump(cv_results, f, indent=4)
 
     print(f"Cross-validation results saved to: {CV_RESULTS_PATH}")
-
     return cv_results
 
 
@@ -241,6 +308,17 @@ def train_xgboost_features_model():
         stratify=y,
     )
 
+    print("X_train shape:", X_train.shape)
+    print("X_test shape :", X_test.shape)
+    print("y_train shape:", y_train.shape)
+    print("y_test shape :", y_test.shape)
+
+    print("\nTrain class distribution:")
+    print(y_train.value_counts())
+
+    print("\nTest class distribution:")
+    print(y_test.value_counts())
+
     negative_count = int((y_train == 0).sum())
     positive_count = int((y_train == 1).sum())
     scale_pos_weight = negative_count / max(positive_count, 1)
@@ -252,7 +330,17 @@ def train_xgboost_features_model():
     model.fit(X_train, y_train)
 
     print("Evaluating model...")
-    metrics = evaluate_model(model, X_test, y_test)
+    metrics = evaluate_model(model, X_test, y_test, threshold=DEFAULT_THRESHOLD)
+    metrics["model_name"] = "XGBClassifier (engineered/shared features)"
+    metrics["dataset_rows"] = int(len(raw_df))
+    metrics["feature_count"] = int(X.shape[1])
+    metrics["train_rows"] = int(len(X_train))
+    metrics["test_rows"] = int(len(X_test))
+    metrics["train_fraud_count"] = int(y_train.sum())
+    metrics["test_fraud_count"] = int(y_test.sum())
+    metrics["imbalance_strategy"] = "scale_pos_weight"
+    metrics["scale_pos_weight"] = float(scale_pos_weight)
+
     print_metrics(metrics)
 
     cv_results = run_cross_validation(X, y, scale_pos_weight=scale_pos_weight)
@@ -273,6 +361,8 @@ def train_xgboost_features_model():
         "scale_pos_weight": float(scale_pos_weight),
         "cross_validation_mean_roc_auc": cv_results["mean_roc_auc"],
         "cross_validation_std_roc_auc": cv_results["std_roc_auc"],
+        "cross_validation_mean_pr_auc": cv_results["mean_pr_auc"],
+        "cross_validation_std_pr_auc": cv_results["std_pr_auc"],
     }
 
     save_artifacts(model, metrics, training_summary)

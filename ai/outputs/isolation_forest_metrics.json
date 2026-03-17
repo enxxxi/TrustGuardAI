@@ -1,42 +1,49 @@
 {
-    "precision": 0.03333333333333333,
-    "recall": 0.034013605442176874,
-    "f1_score": 0.03367003367003367,
+    "precision": 0.08,
+    "recall": 0.06896551724137931,
+    "f1_score": 0.07407407407407407,
     "confusion_matrix": [
         [
-            199708,
-            145
+            39948,
+            23
         ],
         [
-            142,
-            5
+            27,
+            2
         ]
     ],
     "classification_report": {
         "0": {
-            "precision": 0.9992894671003253,
-            "recall": 0.9992744667330488,
-            "f1-score": 0.9992819668603938,
-            "support": 199853.0
+            "precision": 0.9993245778611632,
+            "recall": 0.9994245828225463,
+            "f1-score": 0.999374577840042,
+            "support": 39971.0
         },
         "1": {
-            "precision": 0.03333333333333333,
-            "recall": 0.034013605442176874,
-            "f1-score": 0.03367003367003367,
-            "support": 147.0
+            "precision": 0.08,
+            "recall": 0.06896551724137931,
+            "f1-score": 0.07407407407407407,
+            "support": 29.0
         },
-        "accuracy": 0.998565,
+        "accuracy": 0.99875,
         "macro avg": {
-            "precision": 0.5163114002168293,
-            "recall": 0.5166440360876128,
-            "f1-score": 0.5164760002652138,
-            "support": 200000.0
+            "precision": 0.5396622889305817,
+            "recall": 0.5341950500319628,
+            "f1-score": 0.536724325957058,
+            "support": 40000.0
         },
         "weighted avg": {
-            "precision": 0.9985794893420066,
-            "recall": 0.998565,
-            "f1-score": 0.9985722420894989,
-            "support": 200000.0
+            "precision": 0.998658067542214,
+            "recall": 0.99875,
+            "f1-score": 0.9987037349748116,
+            "support": 40000.0
         }
-    }
+    },
+    "model_name": "IsolationForest",
+    "evaluation_scope": "holdout_test_proxy_check",
+    "contamination": 0.00075,
+    "train_rows": 160000,
+    "test_rows": 40000,
+    "train_fraud_count": 118,
+    "test_fraud_count": 29
 }

@@ -1,4 +1,5 @@
 {
+    "threshold": 0.5,
     "roc_auc": 0.9999974119167431,
     "pr_auc": 0.9967672413793102,
     "precision": 0.9655172413793104,
@@ -40,5 +41,18 @@
             "f1-score": 0.99995,
             "support": 40000.0
         }
-    }
+    },
+    "best_f1_threshold": 0.999877,
+    "best_f1_from_pr_curve": 0.982456,
+    "precision_at_best_f1": 1.0,
+    "recall_at_best_f1": 0.965517,
+    "model_name": "XGBClassifier (engineered/shared features)",
+    "dataset_rows": 200000,
+    "feature_count": 45,
+    "train_rows": 160000,
+    "test_rows": 40000,
+    "train_fraud_count": 118,
+    "test_fraud_count": 29,
+    "imbalance_strategy": "scale_pos_weight",
+    "scale_pos_weight": 1354.9322033898304
 }

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any, Dict, Tuple
 
 import joblib
 import pandas as pd
@@ -9,13 +10,17 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     f1_score,
+    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
 )
 from sklearn.model_selection import train_test_split
 
-from load_dataset import load_data, preprocess_data
+try:
+    from src.load_dataset import load_data, preprocess_data
+except ModuleNotFoundError:
+    from load_dataset import load_data, preprocess_data
 
 
 # -------------------------------------------------------------------
@@ -25,6 +30,7 @@ DATA_PATH = "data/paysim.csv"
 NROWS = 200000
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
+DEFAULT_THRESHOLD = 0.5
 
 MODEL_DIR = Path("models")
 OUTPUT_DIR = Path("outputs")
@@ -37,11 +43,14 @@ FEATURE_IMPORTANCE_PATH = OUTPUT_DIR / "baseline_feature_importance.csv"
 # -------------------------------------------------------------------
 # Data preparation
 # -------------------------------------------------------------------
-def prepare_features_and_target(df: pd.DataFrame):
+def prepare_features_and_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Prepare model features and target.
     """
     target_col = "isFraud"
+
+    if target_col not in df.columns:
+        raise ValueError(f"Target column '{target_col}' not found in dataframe.")
 
     cols_to_drop = [target_col]
 
@@ -62,7 +71,7 @@ def build_model() -> RandomForestClassifier:
     """
     Build baseline RandomForest fraud classifier.
     """
-    model = RandomForestClassifier(
+    return RandomForestClassifier(
         n_estimators=200,
         max_depth=12,
         min_samples_split=10,
@@ -71,20 +80,58 @@ def build_model() -> RandomForestClassifier:
         random_state=RANDOM_STATE,
         n_jobs=-1,
     )
-    return model
+
+
+# -------------------------------------------------------------------
+# Threshold utilities
+# -------------------------------------------------------------------
+def predict_with_threshold(y_prob, threshold: float):
+    return (y_prob >= threshold).astype(int)
+
+
+def find_best_f1_threshold(y_true, y_prob) -> Dict[str, float]:
+    """
+    Search thresholds from PR curve and return the one with best F1.
+    """
+    precision, recall, thresholds = precision_recall_curve(y_true, y_prob)
+
+    best_threshold = DEFAULT_THRESHOLD
+    best_f1 = -1.0
+    best_precision = 0.0
+    best_recall = 0.0
+
+    # thresholds is one shorter than precision/recall
+    for i, threshold in enumerate(thresholds):
+        p = precision[i]
+        r = recall[i]
+        f1 = 0.0 if (p + r) == 0 else 2 * p * r / (p + r)
+
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = float(threshold)
+            best_precision = float(p)
+            best_recall = float(r)
+
+    return {
+        "best_f1_threshold": round(best_threshold, 6),
+        "best_f1_from_pr_curve": round(best_f1, 6),
+        "precision_at_best_f1": round(best_precision, 6),
+        "recall_at_best_f1": round(best_recall, 6),
+    }
 
 
 # -------------------------------------------------------------------
 # Evaluation
 # -------------------------------------------------------------------
-def evaluate_model(model, X_test, y_test):
+def evaluate_model(model, X_test, y_test, threshold: float = DEFAULT_THRESHOLD):
     """
     Evaluate model using fraud-relevant metrics.
     """
-    y_pred = model.predict(X_test)
     y_prob = model.predict_proba(X_test)[:, 1]
+    y_pred = predict_with_threshold(y_prob, threshold)
 
     metrics = {
+        "threshold": float(threshold),
         "roc_auc": float(roc_auc_score(y_test, y_prob)),
         "pr_auc": float(average_precision_score(y_test, y_prob)),
         "precision": float(precision_score(y_test, y_pred, zero_division=0)),
@@ -99,6 +146,9 @@ def evaluate_model(model, X_test, y_test):
         ),
     }
 
+    threshold_search = find_best_f1_threshold(y_test, y_prob)
+    metrics.update(threshold_search)
+
     return metrics, y_pred, y_prob
 
 
@@ -107,14 +157,19 @@ def print_metrics(metrics: dict):
     Print metrics in a readable format.
     """
     print("\n" + "=" * 70)
-    print("BASELINE MODEL EVALUATION")
+    print("BASELINE RANDOMFOREST MODEL EVALUATION")
     print("=" * 70)
 
-    print(f"ROC-AUC   : {metrics['roc_auc']:.6f}")
-    print(f"PR-AUC    : {metrics['pr_auc']:.6f}")
-    print(f"Precision : {metrics['precision']:.6f}")
-    print(f"Recall    : {metrics['recall']:.6f}")
-    print(f"F1-Score  : {metrics['f1_score']:.6f}")
+    print(f"Threshold used        : {metrics['threshold']:.6f}")
+    print(f"ROC-AUC               : {metrics['roc_auc']:.6f}")
+    print(f"PR-AUC                : {metrics['pr_auc']:.6f}")
+    print(f"Precision             : {metrics['precision']:.6f}")
+    print(f"Recall                : {metrics['recall']:.6f}")
+    print(f"F1-Score              : {metrics['f1_score']:.6f}")
+    print(f"Best F1 threshold     : {metrics['best_f1_threshold']:.6f}")
+    print(f"Best F1 from PR curve : {metrics['best_f1_from_pr_curve']:.6f}")
+    print(f"Precision @ best F1   : {metrics['precision_at_best_f1']:.6f}")
+    print(f"Recall @ best F1      : {metrics['recall_at_best_f1']:.6f}")
 
     print("\nConfusion Matrix:")
     print(metrics["confusion_matrix"])
@@ -147,13 +202,13 @@ def save_feature_importance(model, feature_names, output_path=FEATURE_IMPORTANCE
 
     print(f"\nFeature importance saved to: {output_path}")
     print("\nTop 15 important features:")
-    print(importance_df.head(15))
+    print(importance_df.head(15).to_string(index=False))
 
 
 # -------------------------------------------------------------------
 # Saving artifacts
 # -------------------------------------------------------------------
-def save_artifacts(model, metrics):
+def save_artifacts(model, metrics: Dict[str, Any]):
     """
     Save model and evaluation outputs.
     """
@@ -207,12 +262,27 @@ def train_baseline_model():
     print("y_train shape:", y_train.shape)
     print("y_test shape :", y_test.shape)
 
+    print("\nTrain class distribution:")
+    print(y_train.value_counts())
+
+    print("\nTest class distribution:")
+    print(y_test.value_counts())
+
     print("\nTraining RandomForest baseline model...")
     model = build_model()
     model.fit(X_train, y_train)
 
     print("Evaluating model...")
-    metrics, _, _ = evaluate_model(model, X_test, y_test)
+    metrics, _, _ = evaluate_model(model, X_test, y_test, threshold=DEFAULT_THRESHOLD)
+
+    metrics["model_name"] = "RandomForestClassifier"
+    metrics["dataset_rows"] = int(len(raw_df))
+    metrics["feature_count"] = int(X.shape[1])
+    metrics["train_rows"] = int(len(X_train))
+    metrics["test_rows"] = int(len(X_test))
+    metrics["train_fraud_count"] = int(y_train.sum())
+    metrics["test_fraud_count"] = int(y_test.sum())
+
     print_metrics(metrics)
 
     save_artifacts(model, metrics)
