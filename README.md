@@ -45,25 +45,23 @@ This allows the system to:
 ```bash
 # 1. Clone the repo
 git clone https://github.com/your-org/trustguard-ai.git
+cd trustguard-ai
 
-# 2. Create virtual environment
-python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # Mac/Linux
+# 2. Install Flutter dependencies
+cd frontend
+flutter pub get
 
-# 3. Install dependencies
-pip install -r requirements.txt
+# 3. Install Firebase Functions dependencies
+cd ../backend/functions
+npm install
 
-# 4. Download dataset and place at:
-ai/data/paysim.csv
-# Dataset: https://www.kaggle.com/datasets/ealaxi/paysim1
+# 4. Configure service endpoints 
+- Update the Flutter API base URL in frontend/lib/services/api_service.dart
+- Set AI_MODEL_URL or AI_API_URL in Firebase Functions to your Render endpoint
 
-# 5. Train models
-python src/train_xgboost_features.py
-python src/train_isolation_forest.py
-
-# 6. Run prediction
-python src/predict.py
+# 5. Run the Flutter app
+cd ../../frontend
+flutter run
 ```
 
 ---
