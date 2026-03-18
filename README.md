@@ -31,23 +31,15 @@ This allows the system to:
 - Reduce false positives
 - Adapt to new user behaviors
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-| Layer     | Technology                          |
-|-----------|--------------------------------------|
-| Frontend  | React (Web), Flutter (Mobile)        |
-| Backend   | FastAPI (Python)                     |
-| AI Models | XGBoost, Isolation Forest            |
-| Database  | Firebase                             |
-| Dataset   | PaySim (Kaggle)                      |
-
-## 🤖 AI Model Details
-
-| Model             | Purpose                                      |
-|------------------|----------------------------------------------|
-| XGBoost          | Supervised fraud classification              |
-| Isolation Forest | Anomaly detection for unknown fraud patterns |
-| Rule-based checks | Large transfers, suspicious balance changes |
+| Layer | Technology |
+|---|---|
+| **Frontend** | Flutter / Dart |
+| **Backend** | Node.js + Express (Firebase Cloud Functions) |
+| **AI / ML** | Python + FastAPI, XGBoost, Isolation Forest |
+| **Database** | Firebase |
+| **Dataset** | PaySim (Kaggle) |
 
 ## ⚙️ How To Run
 ```bash
