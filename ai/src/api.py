@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,18 +37,32 @@ app.add_middleware(
 # Request / Response Models
 # -------------------------------------------------------------------
 class TransactionRequest(BaseModel):
-    step: int = Field(..., ge=0, examples=[1], description="Transaction step/time index")
-    type: str = Field(..., examples=["TRANSFER"], description="Transaction type")
+    step: Optional[int] = Field(default=None, ge=0, examples=[1], description="Transaction step/time index")
+    type: Optional[str] = Field(default=None, examples=["TRANSFER"], description="Transaction type")
     amount: float = Field(..., ge=0, examples=[35063.63], description="Transaction amount")
-    oldbalanceOrg: float = Field(..., ge=0, examples=[35063.63], description="Sender balance before transaction")
-    newbalanceOrig: float = Field(..., ge=0, examples=[0.0], description="Sender balance after transaction")
-    oldbalanceDest: float = Field(..., ge=0, examples=[0.0], description="Receiver balance before transaction")
-    newbalanceDest: float = Field(..., ge=0, examples=[0.0], description="Receiver balance after transaction")
-    isFlaggedFraud: int = Field(..., examples=[0], description="Upstream rule-based fraud flag: 0 or 1")
+    oldbalanceOrg: Optional[float] = Field(default=None, ge=0, examples=[35063.63], description="Sender balance before transaction")
+    newbalanceOrig: Optional[float] = Field(default=None, ge=0, examples=[0.0], description="Sender balance after transaction")
+    oldbalanceDest: Optional[float] = Field(default=None, ge=0, examples=[0.0], description="Receiver balance before transaction")
+    newbalanceDest: Optional[float] = Field(default=None, ge=0, examples=[0.0], description="Receiver balance after transaction")
+    isFlaggedFraud: Optional[int] = Field(default=None, examples=[0], description="Upstream rule-based fraud flag: 0 or 1")
+
+    # Frontend-friendly fields from the Flutter Analyze screen
+    device: Optional[str] = None
+    location: Optional[str] = None
+    time: Optional[str] = None
+    merchant: Optional[str] = None
+    hour: Optional[int] = None
+    newDevice: Optional[bool] = None
+    newLocation: Optional[bool] = None
+    highRiskMerchant: Optional[bool] = None
+    isForeignTransaction: Optional[bool] = None
+    isVpn: Optional[bool] = None
 
     @field_validator("type")
     @classmethod
-    def validate_type(cls, value: str) -> str:
+    def validate_type(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
         value = value.strip().upper()
         if value not in VALID_TRANSACTION_TYPES:
             raise ValueError(f"Invalid transaction type. Must be one of: {sorted(VALID_TRANSACTION_TYPES)}")
@@ -56,10 +70,94 @@ class TransactionRequest(BaseModel):
 
     @field_validator("isFlaggedFraud")
     @classmethod
-    def validate_flag(cls, value: int) -> int:
+    def validate_flag(cls, value: Optional[int]) -> Optional[int]:
+        if value is None:
+            return value
         if value not in (0, 1):
             raise ValueError("isFlaggedFraud must be 0 or 1")
         return value
+
+    def to_model_input(self) -> dict:
+        amount = float(self.amount)
+        step = self.step if self.step is not None else (self.hour if self.hour is not None else 1)
+
+        tx_type = self.type or _infer_transaction_type(self.merchant, amount)
+        tx_type = tx_type.strip().upper()
+
+        old_balance_org = (
+            float(self.oldbalanceOrg)
+            if self.oldbalanceOrg is not None
+            else _infer_origin_balance(amount, self.newDevice, self.newLocation, self.isVpn)
+        )
+        new_balance_orig = (
+            float(self.newbalanceOrig)
+            if self.newbalanceOrig is not None
+            else max(old_balance_org - amount, 0.0)
+        )
+        old_balance_dest = float(self.oldbalanceDest) if self.oldbalanceDest is not None else 0.0
+        new_balance_dest = (
+            float(self.newbalanceDest)
+            if self.newbalanceDest is not None
+            else old_balance_dest + amount
+        )
+
+        if self.isFlaggedFraud is not None:
+            is_flagged_fraud = self.isFlaggedFraud
+        else:
+            risk_signal = any([
+                bool(self.isVpn),
+                bool(self.newDevice),
+                bool(self.newLocation),
+                bool(self.highRiskMerchant),
+                bool(self.isForeignTransaction),
+                (self.device or "").lower() == "suspicious",
+                amount >= 50000,
+            ])
+            is_flagged_fraud = 1 if risk_signal else 0
+
+        return {
+            "step": int(step),
+            "type": tx_type,
+            "amount": amount,
+            "oldbalanceOrg": round(old_balance_org, 2),
+            "newbalanceOrig": round(new_balance_orig, 2),
+            "oldbalanceDest": round(old_balance_dest, 2),
+            "newbalanceDest": round(new_balance_dest, 2),
+            "isFlaggedFraud": int(is_flagged_fraud),
+            "nameOrig": "C_FRONTEND_ORIG",
+            "nameDest": _infer_destination_name(self.merchant),
+        }
+
+
+def _infer_transaction_type(merchant: Optional[str], amount: float) -> str:
+    merchant_value = (merchant or "").strip().lower()
+    if merchant_value == "highrisk":
+        return "TRANSFER"
+    if amount >= 1000:
+        return "TRANSFER"
+    return "PAYMENT"
+
+
+def _infer_origin_balance(
+    amount: float,
+    new_device: Optional[bool],
+    new_location: Optional[bool],
+    is_vpn: Optional[bool],
+) -> float:
+    multiplier = 2.5
+    if new_device:
+        multiplier += 0.5
+    if new_location:
+        multiplier += 0.5
+    if is_vpn:
+        multiplier += 0.5
+    return max(amount * multiplier, amount + 1000.0)
+
+
+def _infer_destination_name(merchant: Optional[str]) -> str:
+    if (merchant or "").strip().lower() == "regular":
+        return "M_REGULAR"
+    return "C_FRONTEND_DEST"
 
 
 class PredictionResponse(BaseModel):
@@ -144,7 +242,7 @@ def health_check():
 )
 def predict(data: TransactionRequest):
     try:
-        transaction_data = data.model_dump()
+        transaction_data = data.to_model_input()
         result = predict_transaction(transaction_data)
 
         return PredictionResponse(

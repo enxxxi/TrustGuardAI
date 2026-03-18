@@ -24,6 +24,7 @@ VALID_TRANSACTION_TYPES = {"CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER"
 
 REQUIRED_FIELDS = [
     "step",
+    "input",
     "type",
     "amount",
     "oldbalanceOrg",
@@ -35,6 +36,7 @@ REQUIRED_FIELDS = [
 
 NUMERIC_FIELDS = [
     "step",
+    "input",
     "amount",
     "oldbalanceOrg",
     "newbalanceOrig",
@@ -45,6 +47,7 @@ NUMERIC_FIELDS = [
 
 EXPECTED_RAW_COLUMNS = [
     "step",
+    "input",
     "type",
     "amount",
     "nameOrig",

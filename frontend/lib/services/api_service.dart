@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
   // Deployed backend endpoints
   static const String analyzeUrl =
-      'https://trustguard-api.onrender.com/predict';
+      'https://trustguardai-api.onrender.com/predict';
   static const String apiUrl = 'https://api-pa2tyrfh6q-uc.a.run.app';
 
   // Analyze transaction
@@ -15,7 +15,7 @@ class ApiService {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(data),
+        body: jsonEncode({'input': data}),
       );
 
       if (response.statusCode == 200) {
