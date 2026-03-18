@@ -393,6 +393,39 @@ function resolveAiModelUrl() {
   return `${trimmed.replace(/\/$/, "")}/predict`;
 }
 
+function buildAlertPayload(result, transactionData) {
+  const riskScore = Number(result.risk_score ?? result.riskScore ?? 0);
+  const rawStatus = (result.status || "APPROVED").toString().toUpperCase();
+  const reasons = result.reasons || result.explanation || [];
+  const amount = Number(transactionData.amount || 0);
+
+  if (rawStatus.includes("BLOCK")) {
+    return {
+      severity: "danger",
+      title: `Transaction Blocked - RM ${amount.toFixed(2)}`,
+      message: reasons.length
+        ? reasons.join(". ")
+        : "High-risk transaction was blocked by the fraud engine.",
+    };
+  }
+
+  if (rawStatus.includes("FLAG") || rawStatus.includes("REVIEW") || riskScore >= 35) {
+    return {
+      severity: "warning",
+      title: `Transaction Flagged - RM ${amount.toFixed(2)}`,
+      message: reasons.length
+        ? reasons.join(". ")
+        : "Transaction requires additional review.",
+    };
+  }
+
+  return {
+    severity: "info",
+    title: `Transaction Approved - RM ${amount.toFixed(2)}`,
+    message: "Transaction cleared with low fraud risk.",
+  };
+}
+
 // AI-Powered Transaction Analysis Endpoint
 exports.analyzeTransaction = functions.https.onRequest(async (req, res) => {
   try {
@@ -413,6 +446,7 @@ exports.analyzeTransaction = functions.https.onRequest(async (req, res) => {
           risk_score: Number(result.risk_score ?? result.riskScore ?? 0),
           status: result.status || "APPROVED",
           reasons: result.reasons || result.explanation || [],
+          alert: buildAlertPayload(result, transactionData),
           source: "model",
         });
       } catch (modelError) {
@@ -425,6 +459,7 @@ exports.analyzeTransaction = functions.https.onRequest(async (req, res) => {
     return res.json({
       success: true,
       ...fallback,
+      alert: buildAlertPayload(fallback, transactionData),
       source: "rules",
     });
   } catch (error) {

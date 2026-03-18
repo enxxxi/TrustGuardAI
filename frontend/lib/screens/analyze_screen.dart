@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/app_state.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -109,12 +111,36 @@ class _AnalyzeScreenState extends State<AnalyzeScreen>
       _history.insert(0, result);
       if (_history.length > 10) _history.removeLast();
     });
+
+    context.read<AppState>().addAnalyzedTransaction(
+      amount: amt,
+      riskScore: score,
+      status: status,
+      reasons: reasons,
+      location: _locationLabel(_location),
+      merchant: _merchantLabel(_merchant),
+      platform: _merchantLabel(_merchant),
+    );
   }
 
   int _parseScore(dynamic value) {
-    if (value is int) return value.clamp(0, 100);
-    if (value is num) return value.round().clamp(0, 100);
-    return int.tryParse(value?.toString() ?? '')?.clamp(0, 100) ?? 0;
+    if (value is int) return value.clamp(0, 100).toInt();
+    if (value is num) {
+      final normalized = value >= 0 && value <= 1 ? value * 100 : value;
+      return normalized.round().clamp(0, 100).toInt();
+    }
+
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return 0;
+
+    final cleaned = text.replaceAll('%', '');
+    final numeric = num.tryParse(cleaned);
+    if (numeric != null) {
+      final normalized = numeric >= 0 && numeric <= 1 ? numeric * 100 : numeric;
+      return normalized.round().clamp(0, 100).toInt();
+    }
+
+    return 0;
   }
 
   List<String> _parseReasons(Map<String, dynamic> response) {
@@ -245,6 +271,30 @@ class _AnalyzeScreenState extends State<AnalyzeScreen>
         return 20;
       case _Time.lateNight:
         return 2;
+    }
+  }
+
+  String _locationLabel(_Location location) {
+    switch (location) {
+      case _Location.home:
+        return 'Malaysia';
+      case _Location.nearby:
+        return 'Nearby region';
+      case _Location.foreign:
+        return 'Foreign location';
+      case _Location.vpn:
+        return 'VPN / Proxy';
+    }
+  }
+
+  String _merchantLabel(_Merchant merchant) {
+    switch (merchant) {
+      case _Merchant.regular:
+        return 'Regular Merchant';
+      case _Merchant.newMerchant:
+        return 'New Merchant';
+      case _Merchant.highRisk:
+        return 'High Risk Merchant';
     }
   }
 
