@@ -5,11 +5,11 @@ TrustGuard AI is an AI-powered fraud detection system that protects digital wall
 ## Key Features
 ### 1. Behavioral Transaction Profiling
 TrustGuard AI builds a behavioral profile for each user by analyzing patterns such as:
--Average transaction amount
--Transaction frequency
--Typical transaction time
--Location patterns
--Merchant categories
+- Average transaction amount
+- Transaction frequency
+- Typical transaction time
+- Location patterns
+- Merchant categories
 The system learns what “normal behavior” looks like for each user.
 
 ### 2. Real-Time Fraud Risk Scoring
@@ -22,14 +22,14 @@ TrustGuard AI provides clear explanations for every decision.
 
 ### 4. Adaptive Fraud Learning
 TrustGuard AI continuously improves by learning from:
--New transaction patterns
--Confirmed fraud cases
--Behavioral changes over time
+- New transaction patterns
+- Confirmed fraud cases
+- Behavioral changes over time
 
 This allows the system to:
--Detect emerging fraud strategies
--Reduce false positives
--Adapt to new user behaviors
+- Detect emerging fraud strategies
+- Reduce false positives
+- Adapt to new user behaviors
 
 ## Tech Stack
 
@@ -77,5 +77,5 @@ python src/predict.py
 ---
 
 ## Demo video
-> [!DISCLAMER]
->This project is built for educational and demonstration purposes. Do not use in production without proper security audits and compliance checks.
+> [!IMPORTANT]
+>Disclamer: This project is built for educational and demonstration purposes. Do not use in production without proper security audits and compliance checks.
