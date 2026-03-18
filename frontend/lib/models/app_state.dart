@@ -68,9 +68,73 @@ class AppState extends ChangeNotifier {
   void toggleRealtime()  { _realtimeEnabled = !_realtimeEnabled; notifyListeners(); }
   void toggleBiometric() { _biometricEnabled= !_biometricEnabled;notifyListeners(); }
 
+  final List<Transaction> _transactions = List.from(AppData.transactions);
+  List<Transaction> get transactions => _transactions;
+
   final List<AlertItem> _alerts = List.from(AppData.alerts);
   List<AlertItem> get alerts => _alerts;
   int get unreadCount => _alerts.where((a) => !a.isRead).length;
+  AlertItem? get latestAlert => _alerts.isEmpty ? null : _alerts.first;
+
+  void addAlert(AlertItem alert) {
+    _alerts.insert(0, alert);
+    notifyListeners();
+  }
+
+  void addTransaction(Transaction tx) {
+    _transactions.insert(0, tx);
+    notifyListeners();
+  }
+
+  void addAnalyzedTransaction({
+    required double amount,
+    required int riskScore,
+    required String status,
+    List<String> reasons = const [],
+    String? location,
+    String? merchant,
+    String? platform,
+  }) {
+    final normalizedScore = riskScore.clamp(0, 100).toInt();
+    final txStatus = _txStatusFromApi(status, riskScore);
+    final timestamp = DateTime.now();
+    final transactionId = 'TX#${timestamp.millisecondsSinceEpoch.toString().substring(7)}';
+    final merchantName = merchant ?? 'AI Scanned Transaction';
+    final txPlatform = platform ?? merchantName;
+    final txLocation = location ?? 'Unknown location';
+
+    _transactions.insert(0, Transaction(
+      id: transactionId,
+      name: merchantName,
+      userType: _userTypeFromPlatform(txPlatform),
+      amount: amount,
+      time: _formatTime(timestamp),
+      date: _formatDateLabel(timestamp),
+      location: txLocation,
+      riskScore: normalizedScore,
+      status: txStatus,
+      emoji: _emojiForStatus(txStatus),
+      category: _categoryFromPlatform(txPlatform),
+      platform: txPlatform,
+      blockReason: reasons.isEmpty ? null : reasons.join(' + '),
+    ));
+
+    final alert = _buildAlertForAnalysis(
+      amount: amount,
+      riskScore: normalizedScore,
+      status: txStatus,
+      reasons: reasons,
+      platform: txPlatform,
+      location: txLocation,
+      timestamp: timestamp,
+    );
+
+    if (alert != null) {
+      _alerts.insert(0, alert);
+    }
+
+    notifyListeners();
+  }
 
   void markAllRead() { for (var a in _alerts) { a.isRead = true; } notifyListeners(); }
   void markRead(String id) {
@@ -78,9 +142,102 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  TxStatus _txStatusFromApi(String status, int riskScore) {
+    final normalized = status.toUpperCase();
+    if (normalized.contains('BLOCK')) return TxStatus.blocked;
+    if (normalized.contains('FLAG') || normalized.contains('REVIEW')) {
+      return TxStatus.flagged;
+    }
+    if (riskScore >= 70) return TxStatus.blocked;
+    if (riskScore >= 35) return TxStatus.flagged;
+    return TxStatus.approved;
+  }
+
+  AlertItem? _buildAlertForAnalysis({
+    required double amount,
+    required int riskScore,
+    required TxStatus status,
+    required List<String> reasons,
+    required String platform,
+    required String location,
+    required DateTime timestamp,
+  }) {
+    if (status == TxStatus.approved) return null;
+
+    final severity = status == TxStatus.blocked
+        ? AlertSeverity.danger
+        : AlertSeverity.warning;
+    final title = status == TxStatus.blocked
+        ? 'Transaction Blocked - RM ${amount.toStringAsFixed(2)}'
+        : 'Transaction Flagged - RM ${amount.toStringAsFixed(2)}';
+    final detail = reasons.isEmpty
+        ? 'AI detected suspicious activity for $platform in $location.'
+        : reasons.join('. ');
+
+    return AlertItem(
+      id: 'A${timestamp.millisecondsSinceEpoch}',
+      title: title,
+      description: '$detail Risk score: ${riskScore.clamp(0, 100)}%.',
+      time: 'Just now',
+      severity: severity,
+    );
+  }
+
+  String _formatTime(DateTime value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  String _formatDateLabel(DateTime value) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(value.year, value.month, value.day);
+    final diff = today.difference(target).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    return '${value.day}/${value.month}/${value.year}';
+  }
+
+  String _emojiForStatus(TxStatus status) => switch (status) {
+    TxStatus.approved => 'OK',
+    TxStatus.flagged => '!',
+    TxStatus.blocked => 'X',
+  };
+
+  TxCategory _categoryFromPlatform(String platform) {
+    final value = platform.toLowerCase();
+    if (value.contains('food')) return TxCategory.food;
+    if (value.contains('grab') || value.contains('transport')) {
+      return TxCategory.transport;
+    }
+    if (value.contains('transfer')) return TxCategory.transfer;
+    if (value.contains('tnb') || value.contains('bill') || value.contains('utility')) {
+      return TxCategory.utility;
+    }
+    if (value.contains('shop') || value.contains('lazada')) {
+      return TxCategory.shopping;
+    }
+    return TxCategory.unknown;
+  }
+
+  String _userTypeFromPlatform(String platform) {
+    return switch (_categoryFromPlatform(platform)) {
+      TxCategory.food => 'Food delivery',
+      TxCategory.transport => 'Ride-hailing',
+      TxCategory.shopping => 'E-commerce',
+      TxCategory.transfer => 'Transfer',
+      TxCategory.utility => 'Utility',
+      TxCategory.unknown => 'Digital payment',
+    };
+  }
+
   static const monthlyFraud    = [2,0,1,3,5,8,4,2,6,12,7,3];
   static const monthlyApproved = [280,310,290,340,380,420,395,410,450,480,460,520];
   static const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+
+
 }
 
 // ── Static Data ──────────────────────────────────────

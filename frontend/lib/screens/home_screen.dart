@@ -281,11 +281,12 @@ class _KpiRow extends StatelessWidget {
  
   @override
   Widget build(BuildContext context) {
-    final approved = AppData.transactions
+    final state = context.watch<AppState>();
+    final approved = state.transactions
         .where((t) => t.status == TxStatus.approved).toList();
-    final flagged  = AppData.transactions
+    final flagged  = state.transactions
         .where((t) => t.status == TxStatus.flagged).toList();
-    final blocked  = AppData.transactions
+    final blocked  = state.transactions
         .where((t) => t.status == TxStatus.blocked).toList();
     final savedAmt = blocked.fold(0.0, (s, t) => s + t.amount);
  
@@ -570,6 +571,23 @@ class _SheetStat extends StatelessWidget {
 class _ActiveAlertBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final alert = state.latestAlert;
+    final hasDanger = alert?.severity == AlertSeverity.danger;
+    final hasWarning = alert?.severity == AlertSeverity.warning;
+    final color = hasDanger
+        ? AppColors.danger
+        : hasWarning
+            ? AppColors.warn
+            : AppColors.safe;
+    final background = hasDanger
+        ? AppColors.dangerLight
+        : hasWarning
+            ? AppColors.warnLight
+            : AppColors.safeLight;
+    final title = alert?.title ?? 'Real-time monitoring active';
+    final message = alert?.description ?? 'No suspicious transactions detected right now.';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: GestureDetector(
@@ -577,31 +595,32 @@ class _ActiveAlertBanner extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.dangerLight,
+            color: background,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.danger.withOpacity(0.2)),
+            border: Border.all(color: color.withOpacity(0.2)),
           ),
           child: Row(children: [
             Container(
               width: 38, height: 38,
               decoration: BoxDecoration(
-                color: AppColors.danger.withOpacity(0.12),
+                color: color.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10)),
               alignment: Alignment.center,
-              child: const Text('🚨', style: TextStyle(fontSize: 18)),
+              child: Text(hasDanger ? '!' : hasWarning ? 'i' : 'OK',
+                style: const TextStyle(fontSize: 18)),
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Suspicious activity detected',
+              Text(title,
                 style: AppText.body(13,
-                  color: AppColors.danger, weight: FontWeight.w700)),
+                  color: color, weight: FontWeight.w700)),
               const SizedBox(height: 2),
-              Text('RM 1,200 blocked — new device from Indonesia. Tap to review.',
+              Text('$message Tap to review.',
                 style: AppText.body(11, color: AppColors.ink2)),
             ])),
             Icon(Icons.chevron_right_rounded,
-              color: AppColors.danger.withOpacity(0.6), size: 20),
+              color: color.withOpacity(0.6), size: 20),
           ]),
         ),
       ),
@@ -724,7 +743,8 @@ class _SpendCard extends StatelessWidget {
 class _RecentList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final txs = AppData.transactions.take(5).toList();
+    final state = context.watch<AppState>();
+    final txs = state.transactions.take(5).toList();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(children: txs.map((tx) => Padding(
