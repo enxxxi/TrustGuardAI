@@ -24,7 +24,6 @@ VALID_TRANSACTION_TYPES = {"CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER"
 
 REQUIRED_FIELDS = [
     "step",
-    "input",
     "type",
     "amount",
     "oldbalanceOrg",
@@ -36,7 +35,6 @@ REQUIRED_FIELDS = [
 
 NUMERIC_FIELDS = [
     "step",
-    "input",
     "amount",
     "oldbalanceOrg",
     "newbalanceOrig",
@@ -47,7 +45,6 @@ NUMERIC_FIELDS = [
 
 EXPECTED_RAW_COLUMNS = [
     "step",
-    "input",
     "type",
     "amount",
     "nameOrig",
@@ -59,7 +56,6 @@ EXPECTED_RAW_COLUMNS = [
     "isFlaggedFraud",
 ]
 
-# Optional: use training-derived values later if available
 ANOMALY_REFERENCE_MIN = -0.06
 ANOMALY_REFERENCE_MAX = 0.29
 
@@ -139,7 +135,6 @@ def validate_transaction(transaction: Dict[str, Any]) -> Dict[str, Any]:
     if cleaned["isFlaggedFraud"] not in (0, 1):
         raise ValueError("isFlaggedFraud must be 0 or 1.")
 
-    # Optional defaults for schema compatibility
     cleaned.setdefault("nameOrig", "C_UNKNOWN_ORIG")
     cleaned.setdefault("nameDest", "C_UNKNOWN_DEST")
 
@@ -176,21 +171,17 @@ def preprocess_transaction(transaction: Dict[str, Any]) -> pd.DataFrame:
     """
     raw_df = build_raw_transaction_df(transaction)
 
-    # Shared preprocessing expects training-like structure
     raw_df["isFraud"] = 0
 
     processed_df = preprocess_data(raw_df)
 
-    # Drop labels before inference
     cols_to_drop = [col for col in ["isFraud", "isFlaggedFraud"] if col in processed_df.columns]
     processed_df = processed_df.drop(columns=cols_to_drop)
 
-    # Convert booleans if any were created in preprocessing
     bool_cols = processed_df.select_dtypes(include=["bool"]).columns.tolist()
     if bool_cols:
         processed_df[bool_cols] = processed_df[bool_cols].astype(int)
 
-    # Final safety: convert any remaining non-numeric columns if possible
     non_numeric_cols = processed_df.select_dtypes(exclude=["number"]).columns.tolist()
     if non_numeric_cols:
         raise ValueError(
@@ -275,11 +266,11 @@ def derive_reasons(
         reasons.append("High-value transfer or cash-out transaction")
 
     if (
-    transaction["oldbalanceOrg"] > 0
-    and transaction["newbalanceOrig"] == 0
-    and transaction["amount"] >= 50000
-    and transaction["type"] in {"TRANSFER", "CASH_OUT"}
-):
+        transaction["oldbalanceOrg"] > 0
+        and transaction["newbalanceOrig"] == 0
+        and transaction["amount"] >= 50000
+        and transaction["type"] in {"TRANSFER", "CASH_OUT"}
+    ):
         reasons.append("Source account balance drained to zero on high-risk transfer/cash-out")
 
     if (
@@ -310,31 +301,26 @@ def compute_risk_score(
     """
     risk_score = int(round(fraud_probability * 100))
 
-    # Anomaly safeguard
     if anomaly_prediction == -1:
         risk_score = max(risk_score, 55)
     elif anomaly_score < 0.02:
         risk_score = max(risk_score, 45)
 
-    # High-risk transfer/cash-out safeguard
     tx_type = transaction["type"]
     if tx_type in {"TRANSFER", "CASH_OUT"} and transaction["amount"] >= 50000:
         risk_score = max(risk_score, 40)
 
-    # Full-balance-drain safeguard
     if (
-    transaction["oldbalanceOrg"] > 0
-    and transaction["newbalanceOrig"] == 0
-    and transaction["amount"] >= 50000
-    and transaction["type"] in {"TRANSFER", "CASH_OUT"}
-):
+        transaction["oldbalanceOrg"] > 0
+        and transaction["newbalanceOrig"] == 0
+        and transaction["amount"] >= 50000
+        and transaction["type"] in {"TRANSFER", "CASH_OUT"}
+    ):
         risk_score = max(risk_score, 50)
 
-    # Upstream system signal safeguard
     if transaction["isFlaggedFraud"] == 1:
         risk_score = max(risk_score, 85)
 
-    # Defensive logical inconsistency safeguard
     if transaction["newbalanceOrig"] > transaction["oldbalanceOrg"]:
         risk_score = max(risk_score, 60)
 
@@ -383,7 +369,7 @@ def predict_transaction(transaction: Dict[str, Any]) -> Dict[str, Any]:
 
     fraud_probability = float(classifier_model.predict_proba(classifier_input)[0][1])
 
-    anomaly_prediction = int(anomaly_model.predict(anomaly_input)[0])  # -1 anomaly, 1 normal
+    anomaly_prediction = int(anomaly_model.predict(anomaly_input)[0])
     anomaly_raw_score = float(anomaly_model.decision_function(anomaly_input)[0])
     anomaly_risk_score = normalize_anomaly_risk(anomaly_raw_score)
 
