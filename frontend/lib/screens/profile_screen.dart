@@ -1,4 +1,5 @@
 // lib/screens/profile_screen.dart
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -286,11 +287,198 @@ class _InfoTile extends StatelessWidget {
  
 class _Behavior extends StatelessWidget {
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-    child: AppCard(child: Column(children: AppData.behaviorStats.map((s) => BehaviorRow(stat: s)).toList())));
+  Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final profile = context.watch<AuthState>().profile;
+    final stats = _buildBehaviorStats(appState.transactions, profile);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: AppCard(
+        child: Column(
+          children: stats.map((s) => BehaviorRow(stat: s)).toList(),
+        ),
+      ),
+    );
+  }
 }
- 
+
+List<BehaviorStat> _buildBehaviorStats(List<Transaction> txs, UserProfile profile) {
+  if (txs.isEmpty) {
+    return const [
+      BehaviorStat(label:'Avg Transaction', icon:'💰', normalValue:0, currentValue:0, normalDisplay:'RM 0', currentDisplay:'RM 0'),
+      BehaviorStat(label:'Tx per Hour', icon:'⚡', normalValue:0, currentValue:0, normalDisplay:'0/hr', currentDisplay:'0/hr'),
+      BehaviorStat(label:'Night Activity', icon:'🌙', normalValue:0, currentValue:0, normalDisplay:'0%', currentDisplay:'0%'),
+      BehaviorStat(label:'Home Region', icon:'📍', normalValue:0, currentValue:0, normalDisplay:'0%', currentDisplay:'0%'),
+      BehaviorStat(label:'Known Device', icon:'📱', normalValue:0, currentValue:0, normalDisplay:'0%', currentDisplay:'0%'),
+      BehaviorStat(label:'Merchant Diversity', icon:'🏪', normalValue:0, currentValue:0, normalDisplay:'0%', currentDisplay:'0%'),
+    ];
+  }
+
+  final recentCount = txs.length < 5 ? txs.length : 5;
+  final recent = txs.take(recentCount).toList();
+  final baseline = txs.skip(recentCount).toList();
+  final baselineSet = baseline.isEmpty ? recent : baseline;
+  final maxAmount = math.max(_maxAmount(txs), 1).toDouble();
+
+  final baselineAvg = _avgAmount(baselineSet);
+  final currentAvg = _avgAmount(recent);
+  final baselineRate = _txPerHour(baselineSet);
+  final currentRate = _txPerHour(recent);
+  final baselineNight = _nightShare(baselineSet);
+  final currentNight = _nightShare(recent);
+  final baselineHome = _homeRegionShare(baselineSet, profile);
+  final currentHome = _homeRegionShare(recent, profile);
+  final baselineKnown = _knownDeviceShare(baselineSet);
+  final currentKnown = _knownDeviceShare(recent);
+  final baselineDiversity = _merchantDiversity(baselineSet);
+  final currentDiversity = _merchantDiversity(recent);
+
+  return [
+    BehaviorStat(
+      label: 'Avg Transaction',
+      icon: '💰',
+      normalValue: _scale(baselineAvg, maxAmount),
+      currentValue: _scale(currentAvg, maxAmount),
+      normalDisplay: _money(baselineAvg),
+      currentDisplay: _money(currentAvg),
+      isAnomaly: currentAvg > baselineAvg * 1.25 && currentAvg > 0,
+    ),
+    BehaviorStat(
+      label: 'Tx per Hour',
+      icon: '⚡',
+      normalValue: _scale(baselineRate, 10),
+      currentValue: _scale(currentRate, 10),
+      normalDisplay: _rate(baselineRate),
+      currentDisplay: _rate(currentRate),
+      isAnomaly: currentRate > baselineRate * 1.35 && currentRate > 0,
+    ),
+    BehaviorStat(
+      label: 'Night Activity',
+      icon: '🌙',
+      normalValue: baselineNight,
+      currentValue: currentNight,
+      normalDisplay: _percent(baselineNight),
+      currentDisplay: _percent(currentNight),
+      isAnomaly: currentNight > baselineNight + 0.15,
+    ),
+    BehaviorStat(
+      label: 'Home Region',
+      icon: '📍',
+      normalValue: baselineHome,
+      currentValue: currentHome,
+      normalDisplay: _percent(baselineHome),
+      currentDisplay: _percent(currentHome),
+      isAnomaly: currentHome + 0.15 < baselineHome,
+    ),
+    BehaviorStat(
+      label: 'Known Device',
+      icon: '📱',
+      normalValue: baselineKnown,
+      currentValue: currentKnown,
+      normalDisplay: _percent(baselineKnown),
+      currentDisplay: _percent(currentKnown),
+      isAnomaly: currentKnown + 0.15 < baselineKnown,
+    ),
+    BehaviorStat(
+      label: 'Merchant Diversity',
+      icon: '🏪',
+      normalValue: baselineDiversity,
+      currentValue: currentDiversity,
+      normalDisplay: _percent(baselineDiversity),
+      currentDisplay: _percent(currentDiversity),
+      isAnomaly: currentDiversity > baselineDiversity + 0.25,
+    ),
+  ];
+}
+
+double _avgAmount(List<Transaction> txs) {
+  if (txs.isEmpty) return 0;
+  return txs.fold<double>(0, (sum, t) => sum + t.amount) / txs.length;
+}
+
+double _maxAmount(List<Transaction> txs) {
+  if (txs.isEmpty) return 0;
+  return txs.fold<double>(0, (maxValue, t) => t.amount > maxValue ? t.amount : maxValue);
+}
+
+double _txPerHour(List<Transaction> txs) {
+  if (txs.isEmpty) return 0;
+  final minutes = txs.map((t) => _parseMinutes(t.time)).whereType<int>().toList();
+  if (minutes.length < 2) return txs.length.toDouble();
+  final spanMinutes = (minutes.reduce(math.max) - minutes.reduce(math.min)).abs();
+  final hours = math.max(spanMinutes / 60.0, 1 / 60.0);
+  return txs.length / hours;
+}
+
+double _nightShare(List<Transaction> txs) {
+  if (txs.isEmpty) return 0;
+  final nightCount = txs.where((t) {
+    final hour = _parseHour(t.time);
+    return hour != null && (hour >= 20 || hour < 6);
+  }).length;
+  return nightCount / txs.length;
+}
+
+double _homeRegionShare(List<Transaction> txs, UserProfile profile) {
+  if (txs.isEmpty) return 0;
+  final city = profile.city.toLowerCase();
+  final country = profile.country.toLowerCase();
+  final homeCount = txs.where((t) {
+    final loc = t.location.toLowerCase();
+    return loc.contains(city) || loc.contains(country) || loc.contains('my');
+  }).length;
+  return homeCount / txs.length;
+}
+
+double _knownDeviceShare(List<Transaction> txs) {
+  if (txs.isEmpty) return 0;
+  final trusted = txs.where((t) {
+    final reason = (t.blockReason ?? '').toLowerCase();
+    final location = t.location.toLowerCase();
+    final suspicious = reason.contains('device') ||
+        reason.contains('vpn') ||
+        reason.contains('foreign') ||
+        location.contains('unknown') ||
+        location.contains('vpn') ||
+        location.contains('foreign');
+    return !suspicious;
+  }).length;
+  return trusted / txs.length;
+}
+
+double _merchantDiversity(List<Transaction> txs) {
+  if (txs.isEmpty) return 0;
+  final unique = txs.map((t) => t.platform.toLowerCase()).toSet().length;
+  return unique / txs.length;
+}
+
+int? _parseHour(String value) {
+  final parts = value.split(':');
+  if (parts.isEmpty) return null;
+  return int.tryParse(parts.first);
+}
+
+int? _parseMinutes(String value) {
+  final parts = value.split(':');
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  return hour * 60 + minute;
+}
+
+double _scale(double value, double maxValue) {
+  if (maxValue <= 0) return 0;
+  return (value / maxValue).clamp(0.0, 1.0);
+}
+
+String _money(double value) => 'RM ${value.toStringAsFixed(0)}';
+
+String _rate(double value) => '${value.toStringAsFixed(value >= 10 ? 0 : 1)}/hr';
+
+String _percent(double value) => '${(value * 100).round()}%';
+
 class _FraudChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
