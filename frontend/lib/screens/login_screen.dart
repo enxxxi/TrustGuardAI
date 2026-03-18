@@ -19,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _animCtrl;
   late Animation<double>    _fadeAnim;
   late Animation<Offset>    _slideAnim;
+  String? _lastError;
 
   @override
   void initState() {
@@ -40,8 +41,28 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _submit() {
+    context.read<AuthState>().clearError();
     if (!_formKey.currentState!.validate()) return;
     context.read<AuthState>().login(_emailCtrl.text, _passCtrl.text);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final error = context.watch<AuthState>().errorMessage;
+    if (error != null && error != _lastError) {
+      _lastError = error;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
+    }
   }
 
   @override
@@ -262,6 +283,7 @@ class _SignupScreenState extends State<SignupScreen>
   late AnimationController _animCtrl;
   late Animation<double>    _fadeAnim;
   late Animation<Offset>    _slideAnim;
+  String? _lastError;
 
   @override
   void initState() {
@@ -283,6 +305,7 @@ class _SignupScreenState extends State<SignupScreen>
   }
 
   void _submit() {
+    context.read<AuthState>().clearError();
     if (!_formKey.currentState!.validate()) return;
     if (!_agreed) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -297,6 +320,25 @@ class _SignupScreenState extends State<SignupScreen>
     }
     context.read<AuthState>().signup(
       _nameCtrl.text, _emailCtrl.text, _passCtrl.text);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final error = context.watch<AuthState>().errorMessage;
+    if (error != null && error != _lastError) {
+      _lastError = error;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
+    }
   }
 
   @override

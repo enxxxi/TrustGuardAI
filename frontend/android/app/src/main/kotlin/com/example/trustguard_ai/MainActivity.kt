@@ -1,4 +1,4 @@
-package com.example.trustguard_ai
+package com.kamihack.trustguardai
 
 import io.flutter.embedding.android.FlutterActivity
 
