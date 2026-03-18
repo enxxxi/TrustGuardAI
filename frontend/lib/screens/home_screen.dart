@@ -281,11 +281,12 @@ class _KpiRow extends StatelessWidget {
  
   @override
   Widget build(BuildContext context) {
-    final approved = AppData.transactions
+    final state = context.watch<AppState>();
+    final approved = state.transactions
         .where((t) => t.status == TxStatus.approved).toList();
-    final flagged  = AppData.transactions
+    final flagged  = state.transactions
         .where((t) => t.status == TxStatus.flagged).toList();
-    final blocked  = AppData.transactions
+    final blocked  = state.transactions
         .where((t) => t.status == TxStatus.blocked).toList();
     final savedAmt = blocked.fold(0.0, (s, t) => s + t.amount);
  
