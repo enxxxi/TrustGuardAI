@@ -308,33 +308,133 @@ app.get("/fraud-insights", (req, res) => {
   });
 });
 
+function buildRuleBasedAnalysis(transactionData) {
+  const amount = Number(transactionData.amount || 0);
+  const device = (transactionData.device || "known").toString();
+  const location = (transactionData.location || "home").toString();
+  const time = (transactionData.time || "business").toString();
+  const merchant = (transactionData.merchant || "regular").toString();
+
+  let riskScore = 5;
+  const reasons = [];
+
+  if (amount > 3000) {
+    riskScore += 45;
+    reasons.push("Amount is far above the user's normal spending pattern");
+  } else if (amount > 1000) {
+    riskScore += 28;
+    reasons.push("Transaction amount is unusually high");
+  } else if (amount > 300) {
+    riskScore += 14;
+    reasons.push("Transaction is moderately above the baseline");
+  } else {
+    reasons.push("Amount is within the normal spending range");
+  }
+
+  if (device === "suspicious") {
+    riskScore += 38;
+    reasons.push("Device is flagged as suspicious");
+  } else if (device === "newDevice") {
+    riskScore += 20;
+    reasons.push("Transaction is coming from a new device");
+  } else {
+    reasons.push("Device is known and previously trusted");
+  }
+
+  if (location === "vpn") {
+    riskScore += 32;
+    reasons.push("VPN or proxy usage detected");
+  } else if (location === "foreign") {
+    riskScore += 24;
+    reasons.push("Location is outside the usual wallet region");
+  } else if (location === "nearby") {
+    riskScore += 9;
+    reasons.push("Location shows a mild geographic deviation");
+  } else {
+    reasons.push("Location matches the expected home region");
+  }
+
+  if (time === "lateNight") {
+    riskScore += 18;
+    reasons.push("Transaction happened in a high-risk late-night window");
+  } else if (time === "evening") {
+    riskScore += 5;
+    reasons.push("Transaction time is slightly outside normal activity");
+  } else {
+    reasons.push("Transaction occurred during normal business hours");
+  }
+
+  if (merchant === "highRisk") {
+    riskScore += 20;
+    reasons.push("Merchant category is considered high risk");
+  } else if (merchant === "newMerchant") {
+    riskScore += 8;
+    reasons.push("This is the first transaction with the merchant");
+  } else {
+    reasons.push("Merchant is a familiar low-risk counterparty");
+  }
+
+  riskScore = Math.max(0, Math.min(99, riskScore));
+
+  let status = "APPROVED";
+  if (riskScore >= 70) status = "BLOCKED";
+  else if (riskScore >= 35) status = "FLAGGED";
+
+  return { risk_score: riskScore, status, reasons };
+}
+
+function resolveAiModelUrl() {
+  const rawUrl = process.env.AI_MODEL_URL || process.env.AI_API_URL;
+  if (!rawUrl) return null;
+
+  const trimmed = rawUrl.trim();
+  if (trimmed.endsWith("/predict")) return trimmed;
+
+  return `${trimmed.replace(/\/$/, "")}/predict`;
+}
+
 // AI-Powered Transaction Analysis Endpoint
 exports.analyzeTransaction = functions.https.onRequest(async (req, res) => {
   try {
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
     const transactionData = req.body || {};
+    const aiModelUrl = resolveAiModelUrl();
 
-    // Call your AI API
-    const aiResponse = await axios.post(
-      "http://localhost:8000/predict",
-      transactionData
-    );
+    if (aiModelUrl) {
+      try {
+        const aiResponse = await axios.post(aiModelUrl, transactionData);
+        const result = aiResponse.data || {};
 
-    const result = aiResponse.data;
+        return res.json({
+          success: true,
+          risk_score: Number(result.risk_score ?? result.riskScore ?? 0),
+          status: result.status || "APPROVED",
+          reasons: result.reasons || result.explanation || [],
+          source: "model",
+        });
+      } catch (modelError) {
+        console.error("AI MODEL ERROR:", modelError.message);
+        console.error("AI MODEL RESPONSE:", modelError.response?.data);
+      }
+    }
 
-    res.json({
+    const fallback = buildRuleBasedAnalysis(transactionData);
+    return res.json({
       success: true,
-      risk_score: result.risk_score,
-      status: result.status,
+      ...fallback,
+      source: "rules",
     });
-
   } catch (error) {
-  console.error("FULL ERROR:", error);
-  console.error("MESSAGE:", error.message);
-  console.error("RESPONSE:", error.response?.data);
+    console.error("FULL ERROR:", error);
+    console.error("MESSAGE:", error.message);
+    console.error("RESPONSE:", error.response?.data);
 
-  res.status(500).json({
-    error: "AI service failed",
-    details: error.message
-  });
-}
+    res.status(500).json({
+      error: "AI service failed",
+      details: error.message,
+    });
+  }
 });

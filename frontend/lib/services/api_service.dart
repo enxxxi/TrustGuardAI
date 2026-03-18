@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Deployed Cloud Run endpoints
+  // Deployed backend endpoints
   static const String analyzeUrl =
-      'https://analyzetransaction-pa2tyrfh6q-uc.a.run.app';
+      'https://trustguard-api.onrender.com/predict';
   static const String apiUrl = 'https://api-pa2tyrfh6q-uc.a.run.app';
 
   // Analyze transaction
@@ -21,7 +21,10 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        return {'error': 'Server error: ${response.statusCode}'};
+        return {
+          'error':
+              'Server error: ${response.statusCode} ${response.body}',
+        };
       }
     } catch (e) {
       return {'error': e.toString()};
