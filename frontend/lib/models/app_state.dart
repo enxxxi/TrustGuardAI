@@ -75,6 +75,12 @@ class AppState extends ChangeNotifier {
   List<AlertItem> get alerts => _alerts;
   int get unreadCount => _alerts.where((a) => !a.isRead).length;
   AlertItem? get latestAlert => _alerts.isEmpty ? null : _alerts.first;
+  AlertItem? get latestDangerAlert {
+    for (final alert in _alerts) {
+      if (alert.severity == AlertSeverity.danger) return alert;
+    }
+    return null;
+  }
 
   void addAlert(AlertItem alert) {
     _alerts.insert(0, alert);

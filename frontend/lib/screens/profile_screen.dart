@@ -148,6 +148,19 @@ class _ProfileHero extends StatelessWidget {
 class _ProfileStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final transactions = state.transactions;
+    final totalTransactions = transactions.length;
+    final approvedCount = transactions.where((t) => t.status == TxStatus.approved).length;
+    final blockedCount = transactions.where((t) => t.status == TxStatus.blocked).length;
+    final totalSpent = transactions.fold<double>(0, (sum, t) => sum + t.amount);
+    final safeRate = totalTransactions == 0
+        ? 0
+        : ((approvedCount / totalTransactions) * 100).round();
+    final avgSpend = totalTransactions == 0
+        ? 0
+        : (totalSpent / totalTransactions).round();
+
     return Transform.translate(
       offset: const Offset(0, -36),
       child: Padding(
@@ -161,11 +174,27 @@ class _ProfileStats extends StatelessWidget {
               alignment: WrapAlignment.spaceBetween,
               runSpacing: 8,
               spacing: 8,
-              children: const [
-                SizedBox(width: 72, child: StatChip(value: '142', label: 'Transactions', color: AppColors.accent)),
-                SizedBox(width: 72, child: StatChip(value: '96%', label: 'Safe Rate', color: AppColors.safe)),
-                SizedBox(width: 72, child: StatChip(value: 'RM 52', label: 'Avg Spend', color: AppColors.warn)),
-                SizedBox(width: 72, child: StatChip(value: '0', label: 'Frauds', color: AppColors.ink3)),
+              children: [
+                SizedBox(width: 72, child: StatChip(
+                  value: '$totalTransactions',
+                  label: 'Transactions',
+                  color: AppColors.accent,
+                )),
+                SizedBox(width: 72, child: StatChip(
+                  value: '$safeRate%',
+                  label: 'Safe Rate',
+                  color: AppColors.safe,
+                )),
+                SizedBox(width: 72, child: StatChip(
+                  value: 'RM $avgSpend',
+                  label: 'Avg Spend',
+                  color: AppColors.warn,
+                )),
+                SizedBox(width: 72, child: StatChip(
+                  value: '$blockedCount',
+                  label: 'Frauds',
+                  color: AppColors.ink3,
+                )),
               ],
             ),
           ),

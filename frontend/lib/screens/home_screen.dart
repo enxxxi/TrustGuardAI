@@ -369,15 +369,15 @@ class _TapChipState extends State<_TapChip> {
             : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(children: [
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(widget.value, style: AppText.h1(20, color: widget.color)),
-          const SizedBox(height: 2),
+          const SizedBox(height: 1),
           Text(widget.sub,
             style: AppText.label(9, color: widget.color.withOpacity(0.75))),
-          const SizedBox(height: 2),
+          const SizedBox(height: 1),
           Text(widget.label, style: AppText.label(10, color: AppColors.ink3)),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.touch_app_rounded, size: 9, color: AppColors.ink4),
             const SizedBox(width: 2),
@@ -393,7 +393,7 @@ class _VDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
     Container(width: 1, color: AppColors.divider,
-      margin: const EdgeInsets.symmetric(vertical: 12));
+      margin: const EdgeInsets.symmetric(vertical: 8));
 }
  
 // ── KPI Bottom Sheet ─────────────────────────────────
@@ -575,6 +575,23 @@ class _SheetStat extends StatelessWidget {
 class _ActiveAlertBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final alert = state.latestDangerAlert ?? state.latestAlert;
+    final hasDanger = alert?.severity == AlertSeverity.danger;
+    final hasWarning = alert?.severity == AlertSeverity.warning;
+    final color = hasDanger
+        ? AppColors.danger
+        : hasWarning
+            ? AppColors.warn
+            : AppColors.safe;
+    final background = hasDanger
+        ? AppColors.dangerLight
+        : hasWarning
+            ? AppColors.warnLight
+            : AppColors.safeLight;
+    final title = alert?.title ?? 'Real-time monitoring active';
+    final message = alert?.description ?? 'No suspicious transactions detected right now.';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: GestureDetector(
@@ -582,31 +599,36 @@ class _ActiveAlertBanner extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.dangerLight,
+            color: background,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.danger.withOpacity(0.2)),
+            border: Border.all(color: color.withOpacity(0.2)),
           ),
           child: Row(children: [
             Container(
               width: 38, height: 38,
               decoration: BoxDecoration(
-                color: AppColors.danger.withOpacity(0.12),
+                color: color.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10)),
               alignment: Alignment.center,
-              child: const Text('🚨', style: TextStyle(fontSize: 18)),
+              child: Text(hasDanger ? '🚨' : hasWarning ? '⚑' : 'i',
+                style: const TextStyle(fontSize: 18)),
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Suspicious activity detected',
+              Text(title,
                 style: AppText.body(13,
-                  color: AppColors.danger, weight: FontWeight.w700)),
+                  color: color, weight: FontWeight.w700),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text('RM 1,200 blocked — new device from Indonesia. Tap to review.',
-                style: AppText.body(11, color: AppColors.ink2)),
+              Text('$message Tap to review.',
+                style: AppText.body(11, color: AppColors.ink2),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
             ])),
             Icon(Icons.chevron_right_rounded,
-              color: AppColors.danger.withOpacity(0.6), size: 20),
+              color: color.withOpacity(0.6), size: 20),
           ]),
         ),
       ),
@@ -757,7 +779,7 @@ class _SpendCard extends StatelessWidget {
 class _RecentList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final txs = AppData.transactions.take(5).toList();
+    final txs = context.watch<AppState>().transactions.take(5).toList();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(children: txs.map((tx) => Padding(
