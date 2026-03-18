@@ -6,10 +6,10 @@ import '../theme/app_theme.dart';
 import '../models/app_state.dart';
 import '../models/auth_state.dart';
 import '../widgets/common_widgets.dart';
-
+ 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
-
+ 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -32,7 +32,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 }
-
+ 
 class _ProfileHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -77,34 +77,40 @@ class _ProfileHero extends StatelessWidget {
         const SizedBox(height: 3),
         Text(profile.email, style: AppText.label(11, color: AppColors.darkText2)),
         const SizedBox(height: 12),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.safe.withOpacity(0.12), borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.safe.withOpacity(0.25))),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Text('🛡️', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 6),
-              Text('Trust Score: 96 / 100',
-                style: AppText.label(12, color: AppColors.safe, weight: FontWeight.w700)),
-            ])),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.darkBorder)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Text('💳', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 6),
-              Text(profile.walletType, style: AppText.label(12, color: AppColors.darkText)),
-            ])),
-        ]),
+        // Wrap so badges stack vertically on narrow screens
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8, runSpacing: 8,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.safe.withOpacity(0.12), borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.safe.withOpacity(0.25))),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Text('🛡️', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 6),
+                Text('Trust Score: 96 / 100',
+                  style: AppText.label(12, color: AppColors.safe, weight: FontWeight.w700)),
+              ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.darkBorder)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Text('💳', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 6),
+                Text(profile.walletType,
+                  style: AppText.label(12, color: AppColors.darkText),
+                  overflow: TextOverflow.ellipsis),
+              ])),
+          ],
+        ),
       ]),
     );
   }
-
+ 
   void _showAvatarPicker(BuildContext context, UserProfile profile) {
     const avatars = ['👤','👨','👩','🧑','👦','👧','🧔','👱','🧕','👲'];
     showModalBottomSheet(
@@ -138,7 +144,7 @@ class _ProfileHero extends StatelessWidget {
     );
   }
 }
-
+ 
 class _ProfileStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -163,7 +169,7 @@ class _ProfileStats extends StatelessWidget {
     );
   }
 }
-
+ 
 class _PersonalInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -181,11 +187,11 @@ class _PersonalInfo extends StatelessWidget {
     );
   }
 }
-
+ 
 class _InfoTile extends StatelessWidget {
   final IconData icon; final String label, value; final bool last;
   const _InfoTile(this.icon, this.label, this.value, {this.last = false});
-
+ 
   @override
   Widget build(BuildContext context) => Column(children: [
     Padding(
@@ -210,7 +216,7 @@ class _InfoTile extends StatelessWidget {
     ),
     if (!last) const Divider(height: 1, color: AppColors.divider),
   ]);
-
+ 
   void _edit(BuildContext context) {
     final ctrl = TextEditingController(text: value);
     showDialog(context: context, builder: (_) => AlertDialog(
@@ -243,21 +249,24 @@ class _InfoTile extends StatelessWidget {
     ));
   }
 }
-
+ 
 class _Behavior extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
     child: AppCard(child: Column(children: AppData.behaviorStats.map((s) => BehaviorRow(stat: s)).toList())));
 }
-
+ 
 class _FraudChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
     child: AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text('Fraud attempts blocked', style: AppText.body(13, color: AppColors.ink, weight: FontWeight.w600)),
+      Row(children: [
+        Expanded(child: Text('Fraud attempts blocked',
+          style: AppText.body(13, color: AppColors.ink, weight: FontWeight.w600),
+          overflow: TextOverflow.ellipsis)),
+        const SizedBox(width: 8),
         Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(color: AppColors.safeLight, borderRadius: BorderRadius.circular(6)),
           child: Text('0 successful', style: AppText.tag(9, color: AppColors.safe))),
@@ -287,7 +296,7 @@ class _FraudChart extends StatelessWidget {
       Text('Peak in October — 12 attempts, all blocked', style: AppText.label(11)),
     ])));
 }
-
+ 
 class _Security extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -303,7 +312,7 @@ class _Security extends StatelessWidget {
     );
   }
 }
-
+ 
 class _Account extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -344,7 +353,7 @@ class _Account extends StatelessWidget {
       ]),
     );
   }
-
+ 
   void _editProfile(BuildContext context) {
     final auth = context.read<AuthState>();
     final p = auth.profile;
@@ -382,7 +391,7 @@ class _Account extends StatelessWidget {
     );
   }
 }
-
+ 
 Widget _EF(String label, TextEditingController ctrl, IconData icon) =>
   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     Text(label, style: AppText.label(12, color: AppColors.ink2, weight: FontWeight.w600)),
@@ -396,3 +405,4 @@ Widget _EF(String label, TextEditingController ctrl, IconData icon) =>
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13), isDense: true)),
   ]);
+ 

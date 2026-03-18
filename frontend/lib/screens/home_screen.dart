@@ -281,12 +281,11 @@ class _KpiRow extends StatelessWidget {
  
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final approved = state.transactions
+    final approved = AppData.transactions
         .where((t) => t.status == TxStatus.approved).toList();
-    final flagged  = state.transactions
+    final flagged  = AppData.transactions
         .where((t) => t.status == TxStatus.flagged).toList();
-    final blocked  = state.transactions
+    final blocked  = AppData.transactions
         .where((t) => t.status == TxStatus.blocked).toList();
     final savedAmt = blocked.fold(0.0, (s, t) => s + t.amount);
  
@@ -571,23 +570,6 @@ class _SheetStat extends StatelessWidget {
 class _ActiveAlertBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final alert = state.latestAlert;
-    final hasDanger = alert?.severity == AlertSeverity.danger;
-    final hasWarning = alert?.severity == AlertSeverity.warning;
-    final color = hasDanger
-        ? AppColors.danger
-        : hasWarning
-            ? AppColors.warn
-            : AppColors.safe;
-    final background = hasDanger
-        ? AppColors.dangerLight
-        : hasWarning
-            ? AppColors.warnLight
-            : AppColors.safeLight;
-    final title = alert?.title ?? 'Real-time monitoring active';
-    final message = alert?.description ?? 'No suspicious transactions detected right now.';
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: GestureDetector(
@@ -595,32 +577,31 @@ class _ActiveAlertBanner extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: background,
+            color: AppColors.dangerLight,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withOpacity(0.2)),
+            border: Border.all(color: AppColors.danger.withOpacity(0.2)),
           ),
           child: Row(children: [
             Container(
               width: 38, height: 38,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: AppColors.danger.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10)),
               alignment: Alignment.center,
-              child: Text(hasDanger ? '!' : hasWarning ? 'i' : 'OK',
-                style: const TextStyle(fontSize: 18)),
+              child: const Text('🚨', style: TextStyle(fontSize: 18)),
             ),
             const SizedBox(width: 12),
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title,
+              Text('Suspicious activity detected',
                 style: AppText.body(13,
-                  color: color, weight: FontWeight.w700)),
+                  color: AppColors.danger, weight: FontWeight.w700)),
               const SizedBox(height: 2),
-              Text('$message Tap to review.',
+              Text('RM 1,200 blocked — new device from Indonesia. Tap to review.',
                 style: AppText.body(11, color: AppColors.ink2)),
             ])),
             Icon(Icons.chevron_right_rounded,
-              color: color.withOpacity(0.6), size: 20),
+              color: AppColors.danger.withOpacity(0.6), size: 20),
           ]),
         ),
       ),
@@ -715,10 +696,18 @@ class _SpendCard extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 11),
             child: Row(children: [
               Text(cat.emoji, style: const TextStyle(fontSize: 15)),
-              const SizedBox(width: 10),
-              SizedBox(width: 72, child: Text(cat.name,
-                style: AppText.body(12,
-                  color: AppColors.ink, weight: FontWeight.w500))),
+              const SizedBox(width: 8),
+              // Fixed width name — use ConstrainedBox so it never wraps
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 60, maxWidth: 72),
+                child: Text(cat.name,
+                  style: AppText.body(12,
+                    color: AppColors.ink, weight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
@@ -726,8 +715,8 @@ class _SpendCard extends StatelessWidget {
                   backgroundColor: cat.color.withOpacity(0.1),
                   color: cat.color, minHeight: 6),
               )),
-              const SizedBox(width: 10),
-              SizedBox(width: 54, child: Text(
+              const SizedBox(width: 8),
+              SizedBox(width: 46, child: Text(
                 'RM ${cat.amount.toStringAsFixed(0)}',
                 style: AppText.mono(11, color: AppColors.ink2),
                 textAlign: TextAlign.right)),
@@ -743,8 +732,7 @@ class _SpendCard extends StatelessWidget {
 class _RecentList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final txs = state.transactions.take(5).toList();
+    final txs = AppData.transactions.take(5).toList();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(children: txs.map((tx) => Padding(
@@ -792,4 +780,3 @@ class _RecentList extends StatelessWidget {
     );
   }
 }
- 

@@ -4,29 +4,29 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/app_state.dart';
 import '../widgets/common_widgets.dart';
-
+ 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
   @override State<AlertsScreen> createState() => _AlertsScreenState();
 }
-
+ 
 class _AlertsScreenState extends State<AlertsScreen> {
   int _filter = 0;
   final _filters = ['All', 'Critical', 'Warning', 'Info'];
-
+ 
   List<AlertItem> _filtered(List<AlertItem> alerts) => switch (_filter) {
     1 => alerts.where((a) => a.severity == AlertSeverity.danger).toList(),
     2 => alerts.where((a) => a.severity == AlertSeverity.warning).toList(),
     3 => alerts.where((a) => a.severity == AlertSeverity.info).toList(),
     _ => alerts,
   };
-
+ 
   @override
   Widget build(BuildContext context) {
     final state  = context.watch<AppState>();
     final list   = _filtered(state.alerts);
     final unread = state.unreadCount;
-
+ 
     return Column(children: [
       Container(
         color: AppColors.card,
@@ -53,19 +53,19 @@ class _AlertsScreenState extends State<AlertsScreen> {
           ChipFilterRow(chips: _filters, selected: _filter, onSelect: (i) => setState(() => _filter = i)),
         ]),
       ),
-
+ 
       // Stats row
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
         child: Row(children: [
-          _ACount(state.alerts.where((a) => a.severity == AlertSeverity.danger).length,  'Critical', AppColors.danger),
-          const SizedBox(width: 8),
-          _ACount(state.alerts.where((a) => a.severity == AlertSeverity.warning).length, 'Warning',  AppColors.warn),
-          const SizedBox(width: 8),
-          _ACount(state.alerts.where((a) => a.severity == AlertSeverity.info).length,    'Info',     AppColors.accent),
+          Expanded(child: _ACount(state.alerts.where((a) => a.severity == AlertSeverity.danger).length,  'Critical', AppColors.danger)),
+          const SizedBox(width: 6),
+          Expanded(child: _ACount(state.alerts.where((a) => a.severity == AlertSeverity.warning).length, 'Warning',  AppColors.warn)),
+          const SizedBox(width: 6),
+          Expanded(child: _ACount(state.alerts.where((a) => a.severity == AlertSeverity.info).length,    'Info',     AppColors.accent)),
         ]),
       ),
-
+ 
       Expanded(
         child: list.isEmpty
           ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -88,40 +88,40 @@ class _AlertsScreenState extends State<AlertsScreen> {
     ]);
   }
 }
-
-Widget _ACount(int count, String label, Color color) => Expanded(
-  child: Container(
-    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-    decoration: BoxDecoration(color: color.withOpacity(0.07), borderRadius: BorderRadius.circular(10)),
-    child: Row(children: [
-      Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-      const SizedBox(width: 6),
-      Text('$count $label', style: AppText.label(11, color: color, weight: FontWeight.w700)),
-    ]),
-  ),
+ 
+Widget _ACount(int count, String label, Color color) => Container(
+  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+  decoration: BoxDecoration(color: color.withOpacity(0.07), borderRadius: BorderRadius.circular(10)),
+  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+    Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+    const SizedBox(width: 5),
+    Flexible(child: Text('$count $label',
+      style: AppText.label(11, color: color, weight: FontWeight.w700),
+      overflow: TextOverflow.ellipsis)),
+  ]),
 );
-
+ 
 class _AlertCard extends StatefulWidget {
   final AlertItem alert;
   final VoidCallback onTap;
   const _AlertCard({required this.alert, required this.onTap});
   @override State<_AlertCard> createState() => _AlertCardState();
 }
-
+ 
 class _AlertCardState extends State<_AlertCard> {
   bool _expanded = false;
-
+ 
   (Color, Color, String, String) get _m => switch (widget.alert.severity) {
     AlertSeverity.danger  => (AppColors.dangerLight, AppColors.danger,  '🚨', 'CRITICAL'),
     AlertSeverity.warning => (AppColors.warnLight,   AppColors.warn,    '⚑',  'WARNING'),
     AlertSeverity.info    => (AppColors.safeLight,   AppColors.safe,    '✅', 'INFO'),
   };
-
+ 
   @override
   Widget build(BuildContext context) {
     final (bg, fg, icon, label) = _m;
     final unread = !widget.alert.isRead;
-
+ 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
@@ -165,7 +165,7 @@ class _AlertCardState extends State<_AlertCard> {
                 ]),
               ])),
             ])),
-
+ 
             if (_expanded) ...[
               const Divider(height: 1, color: AppColors.divider),
               Padding(
@@ -186,7 +186,7 @@ class _AlertCardState extends State<_AlertCard> {
     );
   }
 }
-
+ 
 Widget _AChip(String label, IconData icon, Color fg, Color bg) => GestureDetector(
   child: Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),

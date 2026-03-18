@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/app_state.dart';
-
+ 
 // ── App Card ─────────────────────────────────────────
 class AppCard extends StatelessWidget {
   final Widget child;
@@ -13,7 +13,7 @@ class AppCard extends StatelessWidget {
   final Border? border;
   const AppCard({super.key, required this.child, this.padding, this.color,
     this.radius = 16, this.onTap, this.border});
-
+ 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -30,14 +30,14 @@ class AppCard extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Status Pill ──────────────────────────────────────
 class StatusPill extends StatelessWidget {
   final TxStatus status;
   final int? score;
   final bool large;
   const StatusPill({super.key, required this.status, this.score, this.large = false});
-
+ 
   @override
   Widget build(BuildContext context) {
     final (bg, fg, icon, label) = switch (status) {
@@ -56,24 +56,24 @@ class StatusPill extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Risk Badge ───────────────────────────────────────
 class RiskBadge extends StatelessWidget {
   final int score;
   const RiskBadge({super.key, required this.score});
-
+ 
   Color get _color {
     if (score < 30) return AppColors.safe;
     if (score < 60) return AppColors.warn;
     return AppColors.danger;
   }
-
+ 
   String get _label {
     if (score < 30) return 'LOW';
     if (score < 60) return 'MED';
     return 'HIGH';
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
@@ -103,7 +103,7 @@ class RiskBadge extends StatelessWidget {
     ]);
   }
 }
-
+ 
 // ── Section Header ────────────────────────────────────
 class SectionHeader extends StatelessWidget {
   final String title;
@@ -111,7 +111,7 @@ class SectionHeader extends StatelessWidget {
   final VoidCallback? onAction;
   final EdgeInsets? padding;
   const SectionHeader({super.key, required this.title, this.action, this.onAction, this.padding});
-
+ 
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -128,7 +128,7 @@ class SectionHeader extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Info Row ─────────────────────────────────────────
 class InfoRow extends StatelessWidget {
   final String label, value;
@@ -136,7 +136,7 @@ class InfoRow extends StatelessWidget {
   final bool divider;
   const InfoRow({super.key, required this.label, required this.value,
     this.valueColor, this.divider = true});
-
+ 
   @override
   Widget build(BuildContext context) {
     return Column(children: [
@@ -153,12 +153,12 @@ class InfoRow extends StatelessWidget {
     ]);
   }
 }
-
+ 
 // ── Behavior Row ─────────────────────────────────────
 class BehaviorRow extends StatelessWidget {
   final BehaviorStat stat;
   const BehaviorRow({super.key, required this.stat});
-
+ 
   @override
   Widget build(BuildContext context) {
     final barColor = stat.isAnomaly ? AppColors.danger : AppColors.safe;
@@ -206,7 +206,7 @@ class BehaviorRow extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Setting Toggle ───────────────────────────────────
 class SettingToggleRow extends StatelessWidget {
   final String icon;
@@ -216,7 +216,7 @@ class SettingToggleRow extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   const SettingToggleRow({super.key, required this.icon, required this.iconBg,
     required this.title, required this.subtitle, required this.value, required this.onChanged});
-
+ 
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -227,22 +227,29 @@ class SettingToggleRow extends StatelessWidget {
         boxShadow: AppShadow.card,
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.fromLTRB(14, 4, 12, 4),
+        contentPadding: const EdgeInsets.fromLTRB(12, 2, 8, 2),
         leading: Container(
-          width: 38, height: 38,
+          width: 36, height: 36,
           decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
           alignment: Alignment.center,
-          child: Text(icon, style: const TextStyle(fontSize: 18)),
+          child: Text(icon, style: const TextStyle(fontSize: 17)),
         ),
-        title: Text(title, style: AppText.body(14, color: AppColors.ink, weight: FontWeight.w600)),
-        subtitle: Text(subtitle, style: AppText.label(12)),
-        trailing: Switch.adaptive(value: value, onChanged: onChanged,
-          activeColor: AppColors.safe, activeTrackColor: AppColors.safeSoft),
+        title: Text(title,
+          style: AppText.body(13, color: AppColors.ink, weight: FontWeight.w600),
+          overflow: TextOverflow.ellipsis, maxLines: 1),
+        subtitle: Text(subtitle,
+          style: AppText.label(11),
+          overflow: TextOverflow.ellipsis, maxLines: 1),
+        trailing: Transform.scale(
+          scale: 0.85,
+          child: Switch.adaptive(value: value, onChanged: onChanged,
+            activeColor: AppColors.safe, activeTrackColor: AppColors.safeSoft),
+        ),
       ),
     );
   }
 }
-
+ 
 // ── Setting Nav Row ──────────────────────────────────
 class SettingNavRow extends StatelessWidget {
   final String icon, title, subtitle;
@@ -253,7 +260,7 @@ class SettingNavRow extends StatelessWidget {
   const SettingNavRow({super.key, required this.icon, required this.iconBg,
     required this.title, required this.subtitle,
     this.arrowColor, this.onTap, this.trailing});
-
+ 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -266,15 +273,20 @@ class SettingNavRow extends StatelessWidget {
           boxShadow: AppShadow.card,
         ),
         child: ListTile(
-          contentPadding: const EdgeInsets.fromLTRB(14, 4, 12, 4),
+          contentPadding: const EdgeInsets.fromLTRB(12, 2, 8, 2),
           leading: Container(
-            width: 38, height: 38,
+            width: 36, height: 36,
             decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
             alignment: Alignment.center,
-            child: Text(icon, style: const TextStyle(fontSize: 18)),
+            child: Text(icon, style: const TextStyle(fontSize: 17)),
           ),
-          title: Text(title, style: AppText.body(14, color: AppColors.ink, weight: FontWeight.w600)),
-          subtitle: subtitle.isNotEmpty ? Text(subtitle, style: AppText.label(12)) : null,
+          title: Text(title,
+            style: AppText.body(13, color: AppColors.ink, weight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis, maxLines: 1),
+          subtitle: subtitle.isNotEmpty
+            ? Text(subtitle, style: AppText.label(11),
+                overflow: TextOverflow.ellipsis, maxLines: 1)
+            : null,
           trailing: trailing ?? Icon(Icons.chevron_right_rounded,
             color: arrowColor ?? AppColors.ink4, size: 20),
         ),
@@ -282,7 +294,7 @@ class SettingNavRow extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Gradient Button ──────────────────────────────────
 class GradientButton extends StatelessWidget {
   final String label;
@@ -292,7 +304,7 @@ class GradientButton extends StatelessWidget {
   final List<Color> colors;
   const GradientButton({super.key, required this.label, this.emoji, this.onTap,
     this.loading = false, this.colors = const [AppColors.accent, AppColors.accentMid]});
-
+ 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -317,14 +329,14 @@ class GradientButton extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Chip Filter Row ──────────────────────────────────
 class ChipFilterRow extends StatelessWidget {
   final List<String> chips;
   final int selected;
   final ValueChanged<int> onSelect;
   const ChipFilterRow({super.key, required this.chips, required this.selected, required this.onSelect});
-
+ 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -353,7 +365,7 @@ class ChipFilterRow extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Stat Chip ────────────────────────────────────────
 class StatChip extends StatelessWidget {
   final String value, label;
@@ -361,7 +373,7 @@ class StatChip extends StatelessWidget {
   final String? sub;
   const StatChip({super.key, required this.value, required this.label,
     required this.color, this.sub});
-
+ 
   @override
   Widget build(BuildContext context) {
     return Padding(
