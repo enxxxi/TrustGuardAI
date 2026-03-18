@@ -15,7 +15,7 @@ class ApiService {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'input': data}),
+        body: jsonEncode(data),
       );
 
       if (response.statusCode == 200) {
