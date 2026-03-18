@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/auth_state.dart';
-
+ 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override State<LoginScreen> createState() => _LoginScreenState();
 }
-
+ 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _emailCtrl    = TextEditingController();
@@ -19,8 +19,7 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _animCtrl;
   late Animation<double>    _fadeAnim;
   late Animation<Offset>    _slideAnim;
-  String? _lastError;
-
+ 
   @override
   void initState() {
     super.initState();
@@ -31,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen>
         .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
     _animCtrl.forward();
   }
-
+ 
   @override
   void dispose() {
     _animCtrl.dispose();
@@ -39,32 +38,12 @@ class _LoginScreenState extends State<LoginScreen>
     _passCtrl.dispose();
     super.dispose();
   }
-
+ 
   void _submit() {
-    context.read<AuthState>().clearError();
     if (!_formKey.currentState!.validate()) return;
     context.read<AuthState>().login(_emailCtrl.text, _passCtrl.text);
   }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final error = context.watch<AuthState>().errorMessage;
-    if (error != null && error != _lastError) {
-      _lastError = error;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      });
-    }
-  }
-
+ 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
@@ -82,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen>
                 key: _formKey,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const SizedBox(height: 40),
-
+ 
                   // Logo + brand
                   Center(child: Column(children: [
                     Container(
@@ -103,9 +82,9 @@ class _LoginScreenState extends State<LoginScreen>
                     Text('AI Fraud Shield for ASEAN',
                       style: AppText.label(14, color: AppColors.darkText)),
                   ])),
-
+ 
                   const SizedBox(height: 40),
-
+ 
                   // Card
                   Container(
                     padding: const EdgeInsets.all(24),
@@ -120,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen>
                       Text('Sign in to your account to continue',
                         style: AppText.body(13)),
                       const SizedBox(height: 24),
-
+ 
                       // Email
                       _FieldLabel('Email address'),
                       TextFormField(
@@ -133,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen>
                           ? 'Enter a valid email' : null,
                       ),
                       const SizedBox(height: 14),
-
+ 
                       // Password
                       _FieldLabel('Password'),
                       TextFormField(
@@ -153,12 +132,12 @@ class _LoginScreenState extends State<LoginScreen>
                           ? 'Password must be at least 6 characters' : null,
                       ),
                       const SizedBox(height: 10),
-
+ 
                       // Remember + Forgot
                       Row(children: [
                         GestureDetector(
                           onTap: () => setState(() => _rememberMe = !_rememberMe),
-                          child: Row(children: [
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               width: 20, height: 20,
@@ -175,19 +154,23 @@ class _LoginScreenState extends State<LoginScreen>
                                     color: Colors.white, size: 13)
                                 : null,
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             Text('Remember me',
-                              style: AppText.label(13, color: AppColors.ink2)),
+                              style: AppText.label(12, color: AppColors.ink2)),
                           ]),
                         ),
                         const Spacer(),
-                        Text('Forgot password?',
-                          style: AppText.label(13,
-                            color: AppColors.accent, weight: FontWeight.w600)),
+                        Flexible(
+                          child: Text('Forgot password?',
+                            style: AppText.label(12,
+                              color: AppColors.accent, weight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ]),
-
+ 
                       const SizedBox(height: 22),
-
+ 
                       // Sign in button
                       _PrimaryBtn(
                         label: 'Sign In',
@@ -195,9 +178,9 @@ class _LoginScreenState extends State<LoginScreen>
                         onTap: _submit,
                         icon: Icons.arrow_forward_rounded,
                       ),
-
+ 
                       const SizedBox(height: 16),
-
+ 
                       // Divider
                       Row(children: [
                         const Expanded(child: Divider(color: AppColors.border)),
@@ -209,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen>
                         const Expanded(child: Divider(color: AppColors.border)),
                       ]),
                       const SizedBox(height: 16),
-
+ 
                       // Social buttons
                       Row(children: [
                         Expanded(child: _SocialBtn('Google', '🇬')),
@@ -218,9 +201,9 @@ class _LoginScreenState extends State<LoginScreen>
                       ]),
                     ]),
                   ),
-
+ 
                   const SizedBox(height: 24),
-
+ 
                   // Sign up link
                   Center(child: GestureDetector(
                     onTap: () => context.read<AuthState>().goToSignup(),
@@ -232,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen>
                           color: AppColors.accentMid, weight: FontWeight.w700)),
                     ])),
                   )),
-
+ 
                   const SizedBox(height: 32),
                 ]),
               ),
@@ -242,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-
+ 
   InputDecoration _dec(String hint, IconData icon) => InputDecoration(
     hintText: hint,
     hintStyle: AppText.label(14),
@@ -264,13 +247,13 @@ class _LoginScreenState extends State<LoginScreen>
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
   );
 }
-
+ 
 // ── Signup Screen ─────────────────────────────────────
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
   @override State<SignupScreen> createState() => _SignupScreenState();
 }
-
+ 
 class _SignupScreenState extends State<SignupScreen>
     with SingleTickerProviderStateMixin {
   final _nameCtrl   = TextEditingController();
@@ -283,8 +266,7 @@ class _SignupScreenState extends State<SignupScreen>
   late AnimationController _animCtrl;
   late Animation<double>    _fadeAnim;
   late Animation<Offset>    _slideAnim;
-  String? _lastError;
-
+ 
   @override
   void initState() {
     super.initState();
@@ -295,7 +277,7 @@ class _SignupScreenState extends State<SignupScreen>
         .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
     _animCtrl.forward();
   }
-
+ 
   @override
   void dispose() {
     _animCtrl.dispose();
@@ -303,9 +285,8 @@ class _SignupScreenState extends State<SignupScreen>
     _passCtrl.dispose(); _confirmCtrl.dispose();
     super.dispose();
   }
-
+ 
   void _submit() {
-    context.read<AuthState>().clearError();
     if (!_formKey.currentState!.validate()) return;
     if (!_agreed) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -321,26 +302,7 @@ class _SignupScreenState extends State<SignupScreen>
     context.read<AuthState>().signup(
       _nameCtrl.text, _emailCtrl.text, _passCtrl.text);
   }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final error = context.watch<AuthState>().errorMessage;
-    if (error != null && error != _lastError) {
-      _lastError = error;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      });
-    }
-  }
-
+ 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
@@ -358,7 +320,7 @@ class _SignupScreenState extends State<SignupScreen>
                 key: _formKey,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const SizedBox(height: 24),
-
+ 
                   // Back
                   GestureDetector(
                     onTap: () => context.read<AuthState>().goToLogin(),
@@ -374,14 +336,14 @@ class _SignupScreenState extends State<SignupScreen>
                         color: Colors.white, size: 16),
                     ),
                   ),
-
+ 
                   const SizedBox(height: 24),
                   Text('Create account', style: AppText.h1(28, color: Colors.white)),
                   const SizedBox(height: 6),
                   Text('Join TrustGuard to protect your digital wallet',
                     style: AppText.label(14, color: AppColors.darkText)),
                   const SizedBox(height: 28),
-
+ 
                   // Card
                   Container(
                     padding: const EdgeInsets.all(24),
@@ -403,7 +365,7 @@ class _SignupScreenState extends State<SignupScreen>
                             ? 'Enter your full name' : null,
                         ),
                         const SizedBox(height: 14),
-
+ 
                         _FieldLabel('Email address'),
                         TextFormField(
                           controller: _emailCtrl,
@@ -415,7 +377,7 @@ class _SignupScreenState extends State<SignupScreen>
                             ? 'Enter a valid email' : null,
                         ),
                         const SizedBox(height: 14),
-
+ 
                         _FieldLabel('Password'),
                         TextFormField(
                           controller: _passCtrl,
@@ -435,7 +397,7 @@ class _SignupScreenState extends State<SignupScreen>
                             ? 'At least 8 characters required' : null,
                         ),
                         const SizedBox(height: 14),
-
+ 
                         _FieldLabel('Confirm Password'),
                         TextFormField(
                           controller: _confirmCtrl,
@@ -447,11 +409,11 @@ class _SignupScreenState extends State<SignupScreen>
                             ? 'Passwords do not match' : null,
                         ),
                         const SizedBox(height: 16),
-
+ 
                         // Password strength indicator
                         _PasswordStrength(pass: _passCtrl.text),
                         const SizedBox(height: 16),
-
+ 
                         // Terms
                         GestureDetector(
                           onTap: () => setState(() => _agreed = !_agreed),
@@ -491,9 +453,9 @@ class _SignupScreenState extends State<SignupScreen>
                             ],
                           ),
                         ),
-
+ 
                         const SizedBox(height: 22),
-
+ 
                         _PrimaryBtn(
                           label: 'Create Account',
                           loading: auth.loading,
@@ -502,9 +464,9 @@ class _SignupScreenState extends State<SignupScreen>
                         ),
                       ]),
                   ),
-
+ 
                   const SizedBox(height: 24),
-
+ 
                   Center(child: GestureDetector(
                     onTap: () => context.read<AuthState>().goToLogin(),
                     child: RichText(text: TextSpan(children: [
@@ -515,7 +477,7 @@ class _SignupScreenState extends State<SignupScreen>
                           color: AppColors.accentMid, weight: FontWeight.w700)),
                     ])),
                   )),
-
+ 
                   const SizedBox(height: 32),
                 ]),
               ),
@@ -525,7 +487,7 @@ class _SignupScreenState extends State<SignupScreen>
       ),
     );
   }
-
+ 
   InputDecoration _dec(String hint, IconData icon) => InputDecoration(
     hintText: hint,
     hintStyle: AppText.label(14),
@@ -546,12 +508,12 @@ class _SignupScreenState extends State<SignupScreen>
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
   );
 }
-
+ 
 // ── Password Strength ────────────────────────────────
 class _PasswordStrength extends StatelessWidget {
   final String pass;
   const _PasswordStrength({required this.pass});
-
+ 
   int get _strength {
     int s = 0;
     if (pass.length >= 8)                      s++;
@@ -560,7 +522,7 @@ class _PasswordStrength extends StatelessWidget {
     if (pass.contains(RegExp(r'[!@#\$%^&*]'))) s++;
     return s;
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     if (pass.isEmpty) return const SizedBox();
@@ -581,14 +543,14 @@ class _PasswordStrength extends StatelessWidget {
     ]);
   }
 }
-
+ 
 // ── Shared widgets ────────────────────────────────────
 Widget _FieldLabel(String text) => Padding(
   padding: const EdgeInsets.only(bottom: 6),
   child: Text(text, style: AppText.label(12,
     color: AppColors.ink2, weight: FontWeight.w600)),
 );
-
+ 
 class _PrimaryBtn extends StatelessWidget {
   final String label;
   final bool loading;
@@ -596,7 +558,7 @@ class _PrimaryBtn extends StatelessWidget {
   final IconData? icon;
   const _PrimaryBtn({required this.label, required this.loading,
     required this.onTap, this.icon});
-
+ 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -626,11 +588,11 @@ class _PrimaryBtn extends StatelessWidget {
     );
   }
 }
-
+ 
 class _SocialBtn extends StatelessWidget {
   final String label, emoji;
   const _SocialBtn(this.label, this.emoji);
-
+ 
   @override
   Widget build(BuildContext context) {
     return Container(

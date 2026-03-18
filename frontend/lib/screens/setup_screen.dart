@@ -3,36 +3,36 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/auth_state.dart';
-
+ 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
   @override State<SetupScreen> createState() => _SetupScreenState();
 }
-
+ 
 class _SetupScreenState extends State<SetupScreen>
     with SingleTickerProviderStateMixin {
   int _step = 0; // 0=personal, 1=wallet, 2=security
   late PageController _pageCtrl;
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
-
+ 
   // Step 1 — Personal
   final _nameCtrl  = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _cityCtrl  = TextEditingController();
   String _country  = 'Malaysia';
   String _avatar   = '👤';
-
+ 
   // Step 2 — Wallet
   final List<String> _wallets    = [];
   String _occupation             = 'Employed';
-
+ 
   // Step 3 — Security
   bool _realtimeOn  = true;
   bool _alertsOn    = true;
   bool _locationOn  = true;
   bool _biometricOn = false;
-
+ 
   final _avatars = ['👤','👨','👩','🧑','👦','👧','🧔','👱'];
   final _countries = ['Malaysia','Indonesia','Singapore','Thailand',
     'Philippines','Vietnam','Myanmar','Cambodia'];
@@ -43,7 +43,7 @@ class _SetupScreenState extends State<SetupScreen>
     ('BigPay','💙'), ('Shopee Pay','🟠'), ('MAE','🟢'),
     ('Lazada Wallet','🔴'), ('Other','💳'),
   ];
-
+ 
   @override
   void initState() {
     super.initState();
@@ -62,14 +62,14 @@ class _SetupScreenState extends State<SetupScreen>
     _occupation     = p.occupation;
     _wallets.add(p.walletType);
   }
-
+ 
   @override
   void dispose() {
     _pageCtrl.dispose(); _animCtrl.dispose();
     _nameCtrl.dispose(); _phoneCtrl.dispose(); _cityCtrl.dispose();
     super.dispose();
   }
-
+ 
   void _next() {
     if (_step < 2) {
       setState(() => _step++);
@@ -80,7 +80,7 @@ class _SetupScreenState extends State<SetupScreen>
       _finish();
     }
   }
-
+ 
   void _back() {
     if (_step > 0) {
       setState(() => _step--);
@@ -89,7 +89,7 @@ class _SetupScreenState extends State<SetupScreen>
         curve: Curves.easeInOut);
     }
   }
-
+ 
   void _finish() {
     final auth = context.read<AuthState>();
     final updated = auth.profile.copyWith(
@@ -103,7 +103,7 @@ class _SetupScreenState extends State<SetupScreen>
     );
     auth.completeSetup(updated);
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
@@ -160,19 +160,19 @@ class _SetupScreenState extends State<SetupScreen>
     );
   }
 }
-
+ 
 // ── Header ────────────────────────────────────────────
 class _Header extends StatelessWidget {
   final int step;
   final VoidCallback? onBack;
   const _Header({required this.step, this.onBack});
-
+ 
   static const _titles = [
     'Personal Info', 'Your Wallets', 'Security Setup'];
   static const _subs = [
     'Tell us about yourself', 'Select your digital wallets',
     'Configure your protection'];
-
+ 
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -217,7 +217,7 @@ class _Header extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Progress Bar ─────────────────────────────────────
 class _ProgressBar extends StatelessWidget {
   final int step;
@@ -237,7 +237,7 @@ class _ProgressBar extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Step 1: Personal ─────────────────────────────────
 class _PersonalStep extends StatelessWidget {
   final TextEditingController nameCtrl, phoneCtrl, cityCtrl;
@@ -249,24 +249,24 @@ class _PersonalStep extends StatelessWidget {
     required this.country, required this.avatar,
     required this.countries, required this.avatars,
     required this.onCountry, required this.onAvatar});
-
+ 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
+ 
         // Avatar picker
         _SetupCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Choose your avatar', style: AppText.h2(14)),
           const SizedBox(height: 12),
-          Row(children: avatars.map((e) => GestureDetector(
+          // Wrap instead of Row — prevents overflow on narrow screens
+          Wrap(spacing: 8, runSpacing: 8, children: avatars.map((e) => GestureDetector(
             onTap: () => onAvatar(e),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               width: 44, height: 44,
-              margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
                 color: e == avatar ? AppColors.accentLight : AppColors.card2,
                 borderRadius: BorderRadius.circular(12),
@@ -279,9 +279,9 @@ class _PersonalStep extends StatelessWidget {
             ),
           )).toList()),
         ])),
-
+ 
         const SizedBox(height: 12),
-
+ 
         _SetupCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _SLabel('Full Name'),
           _SField(ctrl: nameCtrl, hint: 'e.g. Aisha Binti Razak',
@@ -292,9 +292,9 @@ class _PersonalStep extends StatelessWidget {
             icon: Icons.phone_outlined,
             type: TextInputType.phone),
         ])),
-
+ 
         const SizedBox(height: 12),
-
+ 
         _SetupCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _SLabel('City'),
           _SField(ctrl: cityCtrl, hint: 'e.g. Johor Bahru',
@@ -320,13 +320,13 @@ class _PersonalStep extends StatelessWidget {
             )),
           ),
         ])),
-
+ 
         const SizedBox(height: 12),
       ]),
     );
   }
 }
-
+ 
 // ── Step 2: Wallet ────────────────────────────────────
 class _WalletStep extends StatelessWidget {
   final List<String> selected;
@@ -338,14 +338,14 @@ class _WalletStep extends StatelessWidget {
     required this.selected, required this.options,
     required this.occupation, required this.occupations,
     required this.onToggleWallet, required this.onOccupation});
-
+ 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
+ 
         _SetupCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Select your digital wallets',
             style: AppText.h2(14)),
@@ -384,9 +384,9 @@ class _WalletStep extends StatelessWidget {
             );
           }).toList()),
         ])),
-
+ 
         const SizedBox(height: 12),
-
+ 
         _SetupCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Your Occupation', style: AppText.h2(14)),
           const SizedBox(height: 4),
@@ -413,9 +413,9 @@ class _WalletStep extends StatelessWidget {
             );
           }).toList()),
         ])),
-
+ 
         const SizedBox(height: 12),
-
+ 
         // Info card
         Container(
           padding: const EdgeInsets.all(14),
@@ -433,13 +433,13 @@ class _WalletStep extends StatelessWidget {
               style: AppText.body(11, color: AppColors.accent))),
           ]),
         ),
-
+ 
         const SizedBox(height: 12),
       ]),
     );
   }
 }
-
+ 
 // ── Step 3: Security ──────────────────────────────────
 class _SecurityStep extends StatelessWidget {
   final bool realtimeOn, alertsOn, locationOn, biometricOn;
@@ -449,14 +449,14 @@ class _SecurityStep extends StatelessWidget {
     required this.locationOn, required this.biometricOn,
     required this.onRealtime, required this.onAlerts,
     required this.onLocation, required this.onBiometric});
-
+ 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(children: [
-
+ 
         // Trust score preview
         Container(
           padding: const EdgeInsets.all(18),
@@ -485,9 +485,9 @@ class _SecurityStep extends StatelessWidget {
             ])),
           ]),
         ),
-
+ 
         const SizedBox(height: 14),
-
+ 
         _SetupCard(child: Column(children: [
           _SecurityToggle(
             icon: '🛡️', iconBg: AppColors.safeLight,
@@ -517,9 +517,9 @@ class _SecurityStep extends StatelessWidget {
             value: biometricOn, onChanged: onBiometric,
             recommended: false),
         ])),
-
+ 
         const SizedBox(height: 12),
-
+ 
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -539,12 +539,12 @@ class _SecurityStep extends StatelessWidget {
             ])),
           ]),
         ),
-
+ 
         const SizedBox(height: 12),
       ]),
     );
   }
-
+ 
   int get _protectionScore {
     int s = 0;
     if (realtimeOn)  s += 35;
@@ -554,7 +554,7 @@ class _SecurityStep extends StatelessWidget {
     return s;
   }
 }
-
+ 
 class _SecurityToggle extends StatelessWidget {
   final String icon, title, desc;
   final Color iconBg;
@@ -563,7 +563,7 @@ class _SecurityToggle extends StatelessWidget {
   const _SecurityToggle({required this.icon, required this.iconBg,
     required this.title, required this.desc, required this.value,
     required this.onChanged, required this.recommended});
-
+ 
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -577,11 +577,10 @@ class _SecurityToggle extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
+          Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 6, children: [
             Text(title, style: AppText.body(13,
               color: AppColors.ink, weight: FontWeight.w600)),
-            if (recommended) ...[
-              const SizedBox(width: 6),
+            if (recommended)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -590,7 +589,6 @@ class _SecurityToggle extends StatelessWidget {
                 child: Text('RECOMMENDED',
                   style: AppText.tag(7, color: AppColors.safe)),
               ),
-            ],
           ]),
           const SizedBox(height: 2),
           Text(desc, style: AppText.label(11)),
@@ -602,7 +600,7 @@ class _SecurityToggle extends StatelessWidget {
     );
   }
 }
-
+ 
 // ── Setup shared widgets ──────────────────────────────
 class _SetupCard extends StatelessWidget {
   final Widget child;
@@ -620,13 +618,13 @@ class _SetupCard extends StatelessWidget {
     child: child,
   );
 }
-
+ 
 Widget _SLabel(String text) => Padding(
   padding: const EdgeInsets.only(bottom: 6),
   child: Text(text, style: AppText.label(12,
     color: AppColors.ink2, weight: FontWeight.w600)),
 );
-
+ 
 class _SField extends StatelessWidget {
   final TextEditingController ctrl;
   final String hint;
@@ -658,7 +656,7 @@ class _SField extends StatelessWidget {
     ),
   );
 }
-
+ 
 class _SetupBtn extends StatelessWidget {
   final String label;
   final bool loading, isLast;
