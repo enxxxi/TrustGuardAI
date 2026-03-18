@@ -155,15 +155,20 @@ class _ProfileStats extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.border.withOpacity(0.6)), boxShadow: AppShadow.elevated),
-          child: IntrinsicHeight(child: Row(children: [
-            Expanded(child: StatChip(value: '142', label: 'Transactions', color: AppColors.accent)),
-            Container(width: 1, color: AppColors.divider, margin: const EdgeInsets.symmetric(vertical: 12)),
-            Expanded(child: StatChip(value: '96%', label: 'Safe Rate', color: AppColors.safe)),
-            Container(width: 1, color: AppColors.divider, margin: const EdgeInsets.symmetric(vertical: 12)),
-            Expanded(child: StatChip(value: 'RM 52', label: 'Avg Spend', color: AppColors.warn)),
-            Container(width: 1, color: AppColors.divider, margin: const EdgeInsets.symmetric(vertical: 12)),
-            Expanded(child: StatChip(value: '0', label: 'Frauds', color: AppColors.ink3)),
-          ])),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              runSpacing: 8,
+              spacing: 8,
+              children: const [
+                SizedBox(width: 72, child: StatChip(value: '142', label: 'Transactions', color: AppColors.accent)),
+                SizedBox(width: 72, child: StatChip(value: '96%', label: 'Safe Rate', color: AppColors.safe)),
+                SizedBox(width: 72, child: StatChip(value: 'RM 52', label: 'Avg Spend', color: AppColors.warn)),
+                SizedBox(width: 72, child: StatChip(value: '0', label: 'Frauds', color: AppColors.ink3)),
+              ],
+            ),
+          ),
         ),
       ),
     );

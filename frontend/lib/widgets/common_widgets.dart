@@ -378,14 +378,14 @@ class StatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(children: [
-        Text(value, style: AppText.h1(20, color: color)),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(value, style: AppText.h1(20, color: color), maxLines: 1, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 2),
         if (sub != null) ...[
-          Text(sub!, style: AppText.label(9, color: color.withOpacity(0.75))),
+          Text(sub!, style: AppText.label(9, color: color.withOpacity(0.75)), maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
         ],
-        Text(label, style: AppText.label(10, color: AppColors.ink3)),
+        Text(label, style: AppText.label(10, color: AppColors.ink3), maxLines: 1, overflow: TextOverflow.ellipsis),
       ]),
     );
   }

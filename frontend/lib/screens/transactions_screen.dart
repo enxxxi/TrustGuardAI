@@ -35,13 +35,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       Container(
         color: AppColors.card,
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Transactions', style: AppText.h1(22)),
-              Text('${_filtered.length} records · RM ${total.toStringAsFixed(0)} total',
-                style: AppText.label(12)),
-            ]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Transactions', style: AppText.h1(22), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text('${_filtered.length} records · RM ${total.toStringAsFixed(0)} total',
+                  style: AppText.label(12), maxLines: 2, overflow: TextOverflow.ellipsis),
+              ]),
+            ),
+            const SizedBox(width: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(color: AppColors.accentLight, borderRadius: BorderRadius.circular(8)),
@@ -84,15 +87,17 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       ),
  
       // Summary bar
-      Container(
+      Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-        child: Row(children: [
-          _SChip('${AppData.transactions.where((t) => t.status == TxStatus.approved).length}', 'Approved', AppColors.safe),
-          const SizedBox(width: 8),
-          _SChip('${AppData.transactions.where((t) => t.status == TxStatus.flagged).length}',  'Flagged',  AppColors.warn),
-          const SizedBox(width: 8),
-          _SChip('${AppData.transactions.where((t) => t.status == TxStatus.blocked).length}',  'Blocked',  AppColors.danger),
-        ]),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _SChip('${AppData.transactions.where((t) => t.status == TxStatus.approved).length}', 'Approved', AppColors.safe),
+            _SChip('${AppData.transactions.where((t) => t.status == TxStatus.flagged).length}',  'Flagged',  AppColors.warn),
+            _SChip('${AppData.transactions.where((t) => t.status == TxStatus.blocked).length}',  'Blocked',  AppColors.danger),
+          ],
+        ),
       ),
  
       Expanded(
@@ -118,10 +123,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 Widget _SChip(String val, String label, Color color) => Container(
   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
   decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
-  child: Row(children: [
+  child: Row(mainAxisSize: MainAxisSize.min, children: [
     Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
     const SizedBox(width: 5),
-    Text('$val $label', style: AppText.label(11, color: color, weight: FontWeight.w700)),
+    Text('$val $label', style: AppText.label(11, color: color, weight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
   ]),
 );
  
@@ -157,7 +162,10 @@ class _TxRow extends StatelessWidget {
               Text(tx.name, style: AppText.body(14, color: AppColors.ink, weight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text('${tx.id}  ·  ${tx.platform}', style: AppText.label(10)),
+              Text('${tx.id} · ${tx.platform}',
+                style: AppText.label(10),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text('RM ${tx.amount.toStringAsFixed(2)}',

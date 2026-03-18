@@ -214,15 +214,15 @@ class _HeroSection extends StatelessWidget {
                 'Real-time monitoring active. No threats detected in the last 30 minutes.',
                 style: AppText.body(11, color: AppColors.darkText)),
               const SizedBox(height: 10),
-              Row(children: [
-                _MicroStat('96.4%', 'Accuracy', AppColors.safe),
-                Container(width: 1, height: 20, color: AppColors.darkBorder,
-                  margin: const EdgeInsets.symmetric(horizontal: 10)),
-                _MicroStat('1.2%', 'False +', AppColors.warn),
-                Container(width: 1, height: 20, color: AppColors.darkBorder,
-                  margin: const EdgeInsets.symmetric(horizontal: 10)),
-                _MicroStat('38ms', 'Latency', AppColors.accentMid),
-              ]),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: const [
+                  _MicroStat('96.4%', 'Accuracy', AppColors.safe),
+                  _MicroStat('1.2%', 'False +', AppColors.warn),
+                  _MicroStat('38ms', 'Latency', AppColors.accentMid),
+                ],
+              ),
             ])),
           ]),
         ),
@@ -236,11 +236,13 @@ class _MicroStat extends StatelessWidget {
   final Color color;
   const _MicroStat(this.val, this.label, this.color);
   @override
-  Widget build(BuildContext context) =>
-    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(val, style: AppText.mono(12, color: color)),
-      Text(label, style: AppText.label(9, color: AppColors.darkText2)),
-    ]);
+  Widget build(BuildContext context) => SizedBox(
+    width: 68,
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(val, style: AppText.mono(12, color: color), maxLines: 1, overflow: TextOverflow.ellipsis),
+      Text(label, style: AppText.label(9, color: AppColors.darkText2), maxLines: 1, overflow: TextOverflow.ellipsis),
+    ]),
+  );
 }
  
 class _RingPainter extends CustomPainter {
@@ -521,7 +523,9 @@ class _KpiSheet extends StatelessWidget {
                           overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
                         Text('${tx.platform} · ${tx.date} · ${tx.time}',
-                          style: AppText.label(10)),
+                          style: AppText.label(10),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
                       ])),
                       Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                         Text('RM ${tx.amount.toStringAsFixed(2)}',
@@ -618,16 +622,26 @@ class _WeeklyCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('This Week', style: AppText.h2(15)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.accentLight,
-                borderRadius: BorderRadius.circular(8)),
-              child: Text('RM 906 total',
-                style: AppText.label(11,
-                  color: AppColors.accent, weight: FontWeight.w700)),
+          Row(children: [
+            Expanded(
+              child: Text('This Week',
+                style: AppText.h2(15),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: BorderRadius.circular(8)),
+                child: Text('RM 906 total',
+                  style: AppText.label(11,
+                    color: AppColors.accent, weight: FontWeight.w700),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+              ),
             ),
           ]),
           const SizedBox(height: 4),
@@ -688,9 +702,18 @@ class _SpendCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
       child: AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('Spending Breakdown', style: AppText.h2(15)),
-            Text('This month', style: AppText.label(12)),
+          Row(children: [
+            Expanded(
+              child: Text('Spending Breakdown',
+                style: AppText.h2(15),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 10),
+            Text('This month',
+              style: AppText.label(12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
           ]),
           const SizedBox(height: 14),
           ...AppData.spendCategories.map((cat) => Padding(
@@ -698,9 +721,8 @@ class _SpendCard extends StatelessWidget {
             child: Row(children: [
               Text(cat.emoji, style: const TextStyle(fontSize: 15)),
               const SizedBox(width: 8),
-              // Fixed width name — use ConstrainedBox so it never wraps
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 60, maxWidth: 72),
+              SizedBox(
+                width: 64,
                 child: Text(cat.name,
                   style: AppText.body(12,
                     color: AppColors.ink, weight: FontWeight.w500),
@@ -717,10 +739,12 @@ class _SpendCard extends StatelessWidget {
                   color: cat.color, minHeight: 6),
               )),
               const SizedBox(width: 8),
-              SizedBox(width: 46, child: Text(
+              SizedBox(width: 54, child: Text(
                 'RM ${cat.amount.toStringAsFixed(0)}',
                 style: AppText.mono(11, color: AppColors.ink2),
-                textAlign: TextAlign.right)),
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis)),
             ]),
           )),
         ]),
@@ -765,7 +789,9 @@ class _RecentList extends StatelessWidget {
                 overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text('${tx.platform} · ${tx.time}',
-                style: AppText.label(11)),
+                style: AppText.label(11),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
               const SizedBox(height: 5),
               RiskBadge(score: tx.riskScore),
             ])),
