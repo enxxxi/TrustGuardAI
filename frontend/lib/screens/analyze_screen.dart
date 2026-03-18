@@ -80,8 +80,42 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> with SingleTickerProvider
       decision: score >= 70 ? '✕  BLOCKED' : score >= 35 ? '⚑  FLAGGED' : '✓  APPROVED',
       amount: amt, factors: factors,
     );
-    setState(() { _result = res; _loading = false; _history.insert(0, res); if (_history.length > 10) _history.removeLast(); });
+    setState(() {
+      _result = res;
+      _loading = false;
+      _history.insert(0, res);
+      if (_history.length > 10) _history.removeLast();
+    });
+
+    if (!mounted) return;
+    final status = score >= 70
+        ? 'BLOCKED'
+        : score >= 35
+            ? 'FLAGGED'
+            : 'APPROVED';
+    context.read<AppState>().addAnalyzedTransaction(
+      amount: amt,
+      riskScore: score,
+      status: status,
+      reasons: factors.map((f) => f.text).toList(),
+      location: _locationLabel(_location),
+      merchant: _merchantLabel(_merchant),
+      platform: _merchantLabel(_merchant),
+    );
   }
+
+  String _locationLabel(_Location location) => switch (location) {
+    _Location.home => 'Malaysia',
+    _Location.nearby => 'Nearby region',
+    _Location.foreign => 'Foreign location',
+    _Location.vpn => 'VPN / Proxy',
+  };
+
+  String _merchantLabel(_Merchant merchant) => switch (merchant) {
+    _Merchant.regular => 'Regular Merchant',
+    _Merchant.newMerchant => 'New Merchant',
+    _Merchant.highRisk => 'High Risk Merchant',
+  };
  
   Color get _rc { final s = _result?.score ?? 0; return s >= 70 ? AppColors.danger : s >= 35 ? AppColors.warn : AppColors.safe; }
  
