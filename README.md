@@ -67,5 +67,7 @@ flutter run
 ---
 
 ## Demo video
+[VHACK_KamiHack_TruatGuardAI](https://drive.google.com/file/d/1MwUTp3roi7nzGstgGMvVWeI3zh5VvGI3/view?usp=sharing)
+
 > [!IMPORTANT]
 >Disclamer: This project is built for educational and demonstration purposes. Do not use in production without proper security audits and compliance checks.
